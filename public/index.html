@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GoDev Mail — Get Your Free Email</title>
+  <title>GoDev Mail — Create Account</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,94 +13,166 @@
       <div class="brand-name">Go<span>Dev</span> Mail</div>
     </div>
 
-    <h1>Claim your free email</h1>
-    <p class="subtitle">Enter your phone number and we'll send you a verification code to get started.</p>
+    <h1>Create your account</h1>
+    <p class="subtitle">Pick a username and get your free <strong>@godev.com</strong> email address.</p>
 
-    <form id="signup-form" novalidate>
+    <form id="signup-form" novalidate autocomplete="off">
+
+      <!-- Username -->
       <div class="form-group">
-        <label for="phone">Phone Number</label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          placeholder="+1 555 000 0000"
-          autocomplete="tel"
-          required
-        />
+        <label for="username">Username</label>
+        <div class="input-suffix-wrap">
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="yourname"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="30"
+            required
+          />
+          <span class="input-suffix">@godev.com</span>
+        </div>
+        <div class="field-hint" id="username-hint"></div>
       </div>
 
-      <button type="submit" id="submit-btn">Send Verification Code</button>
+      <!-- Password -->
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-eye-wrap">
+          <input type="password" id="password" name="password" placeholder="Min. 8 characters" autocomplete="new-password" required />
+          <button type="button" class="eye-btn" data-target="password">👁</button>
+        </div>
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="form-group">
+        <label for="confirm">Confirm Password</label>
+        <div class="input-eye-wrap">
+          <input type="password" id="confirm" name="confirm" placeholder="Re-enter password" autocomplete="new-password" required />
+          <button type="button" class="eye-btn" data-target="confirm">👁</button>
+        </div>
+        <div class="field-hint" id="confirm-hint"></div>
+      </div>
+
+      <!-- Phone -->
+      <div class="form-group">
+        <label for="phone">Phone Number <span class="label-note">(for verification)</span></label>
+        <input type="tel" id="phone" name="phone" placeholder="+1 555 000 0000" autocomplete="tel" required />
+      </div>
+
+      <button type="submit" id="submit-btn">Continue →</button>
     </form>
 
     <div class="alert" id="alert"></div>
 
-    <div class="security-row">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-      Rate-limited &amp; secured with Helmet.js · No password required
-    </div>
-
     <div class="footer-link">
-      Already signed up? <a href="/verify">Enter your OTP →</a>
+      Already have an account? <a href="/login">Sign in →</a>
     </div>
   </div>
 
   <script>
-    const form = document.getElementById('signup-form');
-    const phoneInput = document.getElementById('phone');
-    const submitBtn = document.getElementById('submit-btn');
-    const alert = document.getElementById('alert');
+    const usernameInput = document.getElementById('username');
+    const usernameHint  = document.getElementById('username-hint');
+    const confirmInput  = document.getElementById('confirm');
+    const confirmHint   = document.getElementById('confirm-hint');
+    const submitBtn     = document.getElementById('submit-btn');
+    const alertEl       = document.getElementById('alert');
 
-    function showAlert(message, type) {
-      alert.textContent = message;
-      alert.className = `alert show alert-${type}`;
-    }
+    // Toggle password visibility
+    document.querySelectorAll('.eye-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inp = document.getElementById(btn.dataset.target);
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+      });
+    });
 
-    function hideAlert() {
-      alert.className = 'alert';
-    }
+    // Live username availability check
+    let usernameTimer;
+    let usernameAvailable = false;
 
-    function setLoading(loading) {
-      submitBtn.disabled = loading;
-      submitBtn.innerHTML = loading
-        ? '<span class="spinner"></span>Sending…'
-        : 'Send Verification Code';
-    }
+    usernameInput.addEventListener('input', () => {
+      const val = usernameInput.value.trim().toLowerCase();
+      usernameAvailable = false;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      hideAlert();
+      if (!val) { usernameHint.textContent = ''; usernameHint.className = 'field-hint'; return; }
 
-      const phone = phoneInput.value.trim();
-      if (!phone) {
-        showAlert('Please enter your phone number.', 'error');
+      if (!/^[a-z0-9._-]{3,30}$/.test(val)) {
+        usernameHint.textContent = 'Only letters, numbers, dots, underscores, hyphens (3–30 chars).';
+        usernameHint.className = 'field-hint hint-error';
         return;
       }
 
-      setLoading(true);
+      usernameHint.textContent = 'Checking…';
+      usernameHint.className = 'field-hint hint-muted';
+      clearTimeout(usernameTimer);
+      usernameTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/check-username?username=${encodeURIComponent(val)}`);
+          const data = await res.json();
+          if (data.available) {
+            usernameHint.textContent = `✓ ${val}@godev.com is available!`;
+            usernameHint.className = 'field-hint hint-success';
+            usernameAvailable = true;
+          } else {
+            usernameHint.textContent = `✗ "${val}" is already taken.`;
+            usernameHint.className = 'field-hint hint-error';
+          }
+        } catch {
+          usernameHint.textContent = '';
+        }
+      }, 500);
+    });
 
+    // Live confirm match
+    confirmInput.addEventListener('input', () => {
+      const pw = document.getElementById('password').value;
+      if (!confirmInput.value) { confirmHint.textContent = ''; confirmHint.className = 'field-hint'; return; }
+      if (confirmInput.value === pw) {
+        confirmHint.textContent = '✓ Passwords match';
+        confirmHint.className = 'field-hint hint-success';
+      } else {
+        confirmHint.textContent = '✗ Passwords do not match';
+        confirmHint.className = 'field-hint hint-error';
+      }
+    });
+
+    function showAlert(msg, type) { alertEl.textContent = msg; alertEl.className = `alert show alert-${type}`; }
+    function setLoading(on) {
+      submitBtn.disabled = on;
+      submitBtn.textContent = on ? 'Sending code…' : 'Continue →';
+    }
+
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertEl.className = 'alert';
+
+      const username = usernameInput.value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const confirm  = document.getElementById('confirm').value;
+      const phone    = document.getElementById('phone').value.trim();
+
+      if (!username)                  { showAlert('Please enter a username.', 'error'); return; }
+      if (!usernameAvailable)         { showAlert('Please choose an available username.', 'error'); return; }
+      if (password.length < 8)        { showAlert('Password must be at least 8 characters.', 'error'); return; }
+      if (password !== confirm)       { showAlert('Passwords do not match.', 'error'); return; }
+      if (!phone || phone.replace(/\D/g,'').length < 7) { showAlert('Please enter a valid phone number.', 'error'); return; }
+
+      setLoading(true);
       try {
-        const res = await fetch('/api/request-otp', {
+        const res = await fetch('/api/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
+          body: JSON.stringify({ username, password, phone }),
         });
-
         const data = await res.json();
+        if (!res.ok) { showAlert(data.error || 'Something went wrong.', 'error'); return; }
 
-        if (!res.ok) {
-          showAlert(data.error || 'Something went wrong.', 'error');
-          return;
-        }
-
-        // Store phone for the verify page
-        sessionStorage.setItem('godev_phone', phone);
-
-        showAlert('Code sent! Redirecting to verification…', 'success');
+        showAlert('Code sent! Check the server console (mock mode). Redirecting…', 'success');
         setTimeout(() => { window.location.href = '/verify'; }, 1400);
-      } catch (err) {
-        showAlert('Network error. Please check your connection.', 'error');
+      } catch {
+        showAlert('Network error. Please try again.', 'error');
       } finally {
         setLoading(false);
       }
