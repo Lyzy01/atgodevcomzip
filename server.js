@@ -16,6 +16,9 @@ const app = express();
 const PORT      = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 
+// Trust Replit's reverse proxy so sessions and rate-limiting work correctly
+app.set('trust proxy', 1);
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
@@ -36,7 +39,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({ mongoUrl: MONGO_URI }),
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' },
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'none', secure: true },
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -200,7 +203,10 @@ app.post('/api/verify-otp', async (req, res) => {
     req.session.userId = user._id.toString();
     req.session.role   = user.role;
 
-    return res.json({ email: user.email, role: user.role, message: 'Account created!' });
+    req.session.save((err) => {
+      if (err) { console.error('session save error:', err); return res.status(500).json({ error: 'Session error.' }); }
+      return res.json({ email: user.email, role: user.role, message: 'Account created!' });
+    });
   } catch (err) {
     console.error('verify-otp error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
@@ -221,7 +227,10 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
     req.session.userId = user._id.toString();
     req.session.role   = user.role;
-    return res.json({ email: user.email, role: user.role, message: 'Signed in!' });
+    req.session.save((err) => {
+      if (err) { console.error('session save error:', err); return res.status(500).json({ error: 'Session error.' }); }
+      return res.json({ email: user.email, role: user.role, message: 'Signed in!' });
+    });
   } catch (err) {
     console.error('login error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
