@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
 const path = require('path');
 
 const User = require('./models/User');
@@ -11,6 +13,7 @@ const Otp = require('./models/Otp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(
@@ -27,38 +30,76 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ─── Session ──────────────────────────────────────────────────────────────────
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'godev-fallback-secret',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({ mongoUrl: MONGO_URI }),
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      httpOnly: true,
+      sameSite: 'lax',
+    },
+  })
+);
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── Rate Limiter (OTP endpoint only) ─────────────────────────────────────────
+// ─── Rate Limiter (OTP endpoints) ─────────────────────────────────────────────
 const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15-minute window
-  max: 5,                    // max 5 OTP requests per window per IP
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many OTP requests. Please wait 15 minutes and try again.' },
 });
 
+// ─── Auth Middleware ──────────────────────────────────────────────────────────
+function requireAuth(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated.' });
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated.' });
+  if (req.session.role !== 'admin') return res.status(403).json({ error: 'Admin access required.' });
+  next();
+}
+
 // ─── Database Connection ──────────────────────────────────────────────────────
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅  MongoDB connected'))
+  .connect(MONGO_URI)
+  .then(async () => {
+    console.log('✅  MongoDB connected');
+    await seedAdmin();
+  })
   .catch((err) => {
     console.error('❌  MongoDB connection error:', err.message);
     process.exit(1);
   });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Seed Admin Account ───────────────────────────────────────────────────────
+async function seedAdmin() {
+  const adminEmail = 'kimlyrainmendez@godev.com';
+  const existing = await User.findOne({ email: adminEmail });
+  if (!existing) {
+    await User.create({
+      phone: '+10000000001',
+      email: adminEmail,
+      role: 'admin',
+    });
+    console.log(`✅  Admin account seeded: ${adminEmail}`);
+  }
+}
 
-/** Generate a cryptographically-random 6-digit OTP string */
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-/**
- * Derive a unique @godev.com address from the phone number.
- * Format: user<last-7-digits>@godev.com
- * Collision is handled by appending a random suffix when needed.
- */
 function phoneToEmail(phone) {
   const digits = phone.replace(/\D/g, '');
   const suffix = digits.slice(-7);
@@ -84,34 +125,28 @@ async function sendOtpSms(phone, otp) {
   console.log(`\n📲  [MOCK SMS] OTP for ${phone}: ${otp}\n`);
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
-// Serve pages
+// ─── Page Routes ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'public', 'verify.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/login-verify', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login-verify.html')));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-/**
- * POST /api/request-otp
- * Accepts { phone } — generates an OTP, stores its hash, and "sends" it.
- */
+// ─── Signup: Request OTP ──────────────────────────────────────────────────────
 app.post('/api/request-otp', otpLimiter, async (req, res) => {
   try {
     const phone = (req.body.phone || '').trim();
-
-    if (!phone || phone.replace(/\D/g, '').length < 7) {
+    if (!phone || phone.replace(/\D/g, '').length < 7)
       return res.status(400).json({ error: 'A valid phone number is required.' });
-    }
 
-    // Prevent duplicate registrations
     const existingUser = await User.findOne({ phone });
-    if (existingUser) {
+    if (existingUser)
       return res.status(409).json({ error: 'This phone number is already registered.' });
-    }
 
     const otp = generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
 
-    // Upsert: replace any existing OTP for this phone
     await Otp.findOneAndUpdate(
       { phone },
       { phone, otpHash, expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
@@ -119,71 +154,153 @@ app.post('/api/request-otp', otpLimiter, async (req, res) => {
     );
 
     await sendOtpSms(phone, otp);
-
-    return res.json({ message: 'OTP sent. Check the server console for the code (mock mode).' });
+    return res.json({ message: 'OTP sent.' });
   } catch (err) {
     console.error('request-otp error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
 
-/**
- * POST /api/verify-otp
- * Accepts { phone, otp } — verifies the code and creates the user account.
- */
+// ─── Signup: Verify OTP & Create Account ──────────────────────────────────────
 app.post('/api/verify-otp', async (req, res) => {
   try {
     const phone = (req.body.phone || '').trim();
     const otp = (req.body.otp || '').trim();
-
-    if (!phone || !otp) {
-      return res.status(400).json({ error: 'Phone and OTP are required.' });
-    }
+    if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP are required.' });
 
     const record = await Otp.findOne({ phone });
-
-    if (!record) {
+    if (!record || record.expiresAt < new Date()) {
+      await Otp.deleteOne({ phone });
       return res.status(400).json({ error: 'OTP expired or not found. Please request a new one.' });
     }
 
-    if (record.expiresAt < new Date()) {
-      await Otp.deleteOne({ phone });
-      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
-    }
-
     const isMatch = await bcrypt.compare(otp, record.otpHash);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
-    }
+    if (!isMatch) return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
 
-    // OTP valid — delete it immediately (one-time use)
     await Otp.deleteOne({ phone });
 
-    // Check again for race condition
-    const existingUser = await User.findOne({ phone });
-    if (existingUser) {
-      return res.json({ email: existingUser.email, message: 'Account already exists.' });
+    let user = await User.findOne({ phone });
+    if (!user) {
+      let email = phoneToEmail(phone);
+      const collision = await User.findOne({ email });
+      if (collision) email = email.replace('@godev.com', `${Math.floor(1000 + Math.random() * 9000)}@godev.com`);
+      user = await User.create({ phone, email });
+      console.log(`✅  New account: ${user.email}`);
     }
 
-    // Assign a unique @godev.com address
-    let email = phoneToEmail(phone);
-    let collision = await User.findOne({ email });
-    if (collision) {
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      email = email.replace('@godev.com', `${rand}@godev.com`);
-    }
+    req.session.userId = user._id.toString();
+    req.session.role = user.role;
 
-    const user = await User.create({ phone, email });
-    console.log(`✅  New account created: ${user.email}`);
-
-    return res.json({ email: user.email, message: 'Account created successfully!' });
+    return res.json({ email: user.email, role: user.role, message: 'Account created!' });
   } catch (err) {
     console.error('verify-otp error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
 
-// ─── 404 fallback ─────────────────────────────────────────────────────────────
+// ─── Login: Request OTP by Email ─────────────────────────────────────────────
+app.post('/api/request-login-otp', otpLimiter, async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!email.endsWith('@godev.com'))
+      return res.status(400).json({ error: 'Please enter a valid @godev.com email.' });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ error: 'No account found with that email address.' });
+
+    // Admin placeholder phone cannot receive SMS — handled separately
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    await Otp.findOneAndUpdate(
+      { phone: user.phone },
+      { phone: user.phone, otpHash, expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
+      { upsert: true, new: true }
+    );
+
+    await sendOtpSms(user.phone, otp);
+    return res.json({ message: 'OTP sent to your registered phone.' });
+  } catch (err) {
+    console.error('request-login-otp error:', err);
+    return res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ─── Login: Verify OTP & Create Session ──────────────────────────────────────
+app.post('/api/verify-login-otp', async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    const otp = (req.body.otp || '').trim();
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required.' });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+
+    const record = await Otp.findOne({ phone: user.phone });
+    if (!record || record.expiresAt < new Date()) {
+      await Otp.deleteOne({ phone: user.phone });
+      return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+    }
+
+    const isMatch = await bcrypt.compare(otp, record.otpHash);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid OTP. Please try again.' });
+
+    await Otp.deleteOne({ phone: user.phone });
+
+    req.session.userId = user._id.toString();
+    req.session.role = user.role;
+
+    return res.json({ email: user.email, role: user.role, message: 'Signed in!' });
+  } catch (err) {
+    console.error('verify-login-otp error:', err);
+    return res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ─── Me ───────────────────────────────────────────────────────────────────────
+app.get('/api/me', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.session.userId).select('-__v');
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    return res.json(user);
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid');
+    res.json({ message: 'Signed out.' });
+  });
+});
+
+// ─── Admin: List Users ────────────────────────────────────────────────────────
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find().select('-__v').sort({ createdAt: -1 });
+    return res.json({ users });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ─── Admin: Delete User ───────────────────────────────────────────────────────
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete an admin account.' });
+    await User.deleteOne({ _id: user._id });
+    return res.json({ message: 'User deleted.' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'Route not found.' }));
 
 // ─── Start ────────────────────────────────────────────────────────────────────

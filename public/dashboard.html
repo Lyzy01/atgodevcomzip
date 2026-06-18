@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="card dashboard-card">
+    <div class="dash-header">
+      <div class="brand">
+        <div class="brand-icon">✉</div>
+        <div class="brand-name">Go<span>Dev</span> Mail</div>
+      </div>
+      <button class="logout-btn" id="logout-btn">Sign out</button>
+    </div>
+
+    <div class="welcome-row">
+      <div class="avatar" id="avatar">?</div>
+      <div>
+        <div class="welcome-text">Welcome back 👋</div>
+        <div class="welcome-email" id="user-email">Loading…</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-label">Your GoDev Email</div>
+        <div class="info-value" id="dash-email">—</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Account Role</div>
+        <div class="info-value role-badge" id="dash-role">—</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Member Since</div>
+        <div class="info-value" id="dash-created">—</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Status</div>
+        <div class="info-value status-active">● Active</div>
+      </div>
+    </div>
+
+    <div class="copy-row">
+      <span id="copy-email">—</span>
+      <button class="copy-btn" id="copy-btn">Copy</button>
+    </div>
+
+    <div class="alert" id="alert"></div>
+  </div>
+
+  <script>
+    async function loadMe() {
+      try {
+        const res = await fetch('/api/me');
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+
+        const initial = (data.email || '?')[0].toUpperCase();
+        document.getElementById('avatar').textContent = initial;
+        document.getElementById('user-email').textContent = data.email;
+        document.getElementById('dash-email').textContent = data.email;
+        document.getElementById('copy-email').textContent = data.email;
+        document.getElementById('dash-role').textContent = data.role === 'admin' ? '★ Admin' : 'User';
+        document.getElementById('dash-role').style.color = data.role === 'admin' ? 'var(--accent)' : 'var(--success)';
+        document.getElementById('dash-created').textContent = new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      } catch {
+        window.location.href = '/login';
+      }
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      const email = document.getElementById('dash-email').textContent;
+      navigator.clipboard.writeText(email).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    });
+
+    loadMe();
+  </script>
+</body>
+</html>

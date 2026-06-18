@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Sign In</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">✉</div>
+      <div class="brand-name">Go<span>Dev</span> Mail</div>
+    </div>
+
+    <h1>Sign in</h1>
+    <p class="subtitle">Enter your <strong>@godev.com</strong> email address and we'll send a code to your phone.</p>
+
+    <form id="login-form" novalidate>
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="you@godev.com"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <button type="submit" id="submit-btn">Send Sign-In Code</button>
+    </form>
+
+    <div class="alert" id="alert"></div>
+
+    <div class="security-row">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      No password needed · OTP sent to your registered phone
+    </div>
+
+    <div class="footer-link">
+      Don't have an account? <a href="/">Sign up →</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const emailInput = document.getElementById('email');
+    const submitBtn = document.getElementById('submit-btn');
+    const alertEl = document.getElementById('alert');
+
+    function showAlert(msg, type) {
+      alertEl.textContent = msg;
+      alertEl.className = `alert show alert-${type}`;
+    }
+
+    function setLoading(on) {
+      submitBtn.disabled = on;
+      submitBtn.innerHTML = on ? '<span class="spinner"></span>Sending…' : 'Send Sign-In Code';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertEl.className = 'alert';
+
+      const email = emailInput.value.trim().toLowerCase();
+      if (!email.endsWith('@godev.com')) {
+        showAlert('Please enter a valid @godev.com email address.', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch('/api/request-login-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) { showAlert(data.error || 'Something went wrong.', 'error'); return; }
+
+        sessionStorage.setItem('godev_login_email', email);
+        showAlert('Code sent! Redirecting…', 'success');
+        setTimeout(() => { window.location.href = '/login-verify'; }, 1200);
+      } catch {
+        showAlert('Network error. Please try again.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

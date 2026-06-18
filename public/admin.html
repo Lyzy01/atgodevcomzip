@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Admin Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-wrap">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand" style="margin-bottom:32px">
+        <div class="brand-icon">✉</div>
+        <div class="brand-name">Go<span>Dev</span> Mail</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" href="/admin">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+        <a class="nav-item" href="#users">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-admin-email" id="admin-email">Loading…</div>
+        <button class="logout-btn" id="logout-btn">Sign out</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h2 class="admin-title">Admin Panel</h2>
+        <span class="admin-badge">★ Administrator</span>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-label">Total Accounts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-users">—</div>
+          <div class="stat-label">Regular Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-admins">—</div>
+          <div class="stat-label">Admins</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-today">—</div>
+          <div class="stat-label">Joined Today</div>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="table-card" id="users">
+        <div class="table-header">
+          <h3>All Accounts</h3>
+          <input class="search-input" id="search" placeholder="Search by email…" />
+        </div>
+        <div class="alert" id="alert"></div>
+        <div class="table-wrap">
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="5" class="table-loading">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let allUsers = [];
+
+    function maskPhone(phone) {
+      const d = phone.replace(/\D/g, '');
+      return d.length > 4 ? '••••' + d.slice(-4) : '••••';
+    }
+
+    function renderTable(users) {
+      const tbody = document.getElementById('users-tbody');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No users found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr data-id="${u._id}">
+          <td><span class="email-cell">${u.email}</span></td>
+          <td class="muted">${maskPhone(u.phone)}</td>
+          <td><span class="role-pill ${u.role}">${u.role === 'admin' ? '★ Admin' : 'User'}</span></td>
+          <td class="muted">${new Date(u.createdAt).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
+          <td>
+            ${u.role !== 'admin'
+              ? `<button class="del-btn" onclick="deleteUser('${u._id}', '${u.email}')">Delete</button>`
+              : '<span class="muted">—</span>'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/admin/users');
+        if (res.status === 401 || res.status === 403) { window.location.href = '/login'; return; }
+        const data = await res.json();
+        allUsers = data.users;
+
+        // Stats
+        const today = new Date().toDateString();
+        document.getElementById('stat-total').textContent = allUsers.length;
+        document.getElementById('stat-users').textContent = allUsers.filter(u => u.role === 'user').length;
+        document.getElementById('stat-admins').textContent = allUsers.filter(u => u.role === 'admin').length;
+        document.getElementById('stat-today').textContent = allUsers.filter(u => new Date(u.createdAt).toDateString() === today).length;
+
+        renderTable(allUsers);
+      } catch {
+        document.getElementById('alert').className = 'alert show alert-error';
+        document.getElementById('alert').textContent = 'Failed to load users.';
+      }
+    }
+
+    async function deleteUser(id, email) {
+      if (!confirm(`Delete account ${email}? This cannot be undone.`)) return;
+      try {
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Failed to delete.'); return; }
+        allUsers = allUsers.filter(u => u._id !== id);
+        renderTable(allUsers);
+        document.getElementById('stat-total').textContent = allUsers.length;
+        document.getElementById('stat-users').textContent = allUsers.filter(u => u.role === 'user').length;
+      } catch { alert('Network error.'); }
+    }
+
+    document.getElementById('search').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      renderTable(q ? allUsers.filter(u => u.email.includes(q)) : allUsers);
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    async function loadMe() {
+      const res = await fetch('/api/me');
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      const data = await res.json();
+      if (data.role !== 'admin') { window.location.href = '/dashboard'; return; }
+      document.getElementById('admin-email').textContent = data.email;
+    }
+
+    loadMe();
+    loadUsers();
+  </script>
+</body>
+</html>
