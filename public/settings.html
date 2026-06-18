@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #161b25;
+      --border:   #2a3347;
+      --text:     #e8edf5;
+      --muted:    #7a8aa0;
+      --accent:   #4f8ef7;
+      --danger:   #f87171;
+      --success:  #34d399;
+      --warning:  #fbbf24;
+      --sidebar-w: 220px;
+    }
+    [data-theme="light"] {
+      --bg:      #f3f4f8;
+      --surface: #ffffff;
+      --border:  #dde1ea;
+      --text:    #1a202c;
+      --muted:   #6b7280;
+      --accent:  #2563eb;
+      --danger:  #dc2626;
+      --success: #059669;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; height: 100vh; overflow: hidden;
+      font-size: 14px; line-height: 1.5;
+      transition: background .2s, color .2s;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 20px 12px; gap: 0; overflow-y: auto;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 8px; margin-bottom: 24px; text-decoration: none;
+    }
+    .brand-icon {
+      width: 32px; height: 32px; background: var(--accent);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: 15px;
+      box-shadow: 0 0 16px rgba(79,142,247,.3);
+    }
+    .brand-name { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+    .brand-name span { color: var(--accent); }
+
+    .sidebar-section-label {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .6px;
+      padding: 0 12px; margin: 16px 0 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; color: var(--muted);
+      cursor: pointer; transition: background .12s, color .12s;
+      user-select: none; border: none; background: none;
+      width: 100%; text-align: left; text-decoration: none;
+    }
+    .nav-item:hover { background: rgba(79,142,247,.08); color: var(--text); }
+    .nav-item.active { background: rgba(79,142,247,.12); color: var(--accent); font-weight: 600; }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+    .sidebar-user {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 8px; border-radius: 8px;
+      background: rgba(79,142,247,.06); border: 1px solid var(--border);
+      margin-top: auto;
+    }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg,#4f8ef7,#7c3aed);
+      display: flex; align-items: center; justify-content:center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .user-email { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .logout-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 16px; cursor: pointer; padding: 2px 4px;
+      transition: color .15s; border-radius: 4px;
+    }
+    .logout-btn:hover { color: var(--danger); }
+
+    /* ── Main ── */
+    .main {
+      flex: 1; overflow-y: auto; padding: 40px 48px;
+      max-width: 900px;
+    }
+    .main::-webkit-scrollbar { width: 4px; }
+    .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .page-header { margin-bottom: 32px; }
+    .page-title  { font-size: 24px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 4px; }
+    .page-sub    { font-size: 13px; color: var(--muted); }
+
+    /* ── Section cards ── */
+    .settings-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; margin-bottom: 24px;
+    }
+    .section-header {
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-icon { font-size: 18px; }
+    .section-title { font-size: 15px; font-weight: 600; }
+    .section-desc  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .section-body  { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+
+    /* ── Form elements ── */
+    .form-row { display: flex; gap: 16px; }
+    .form-row > * { flex: 1; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .field input, .field textarea, .field select {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none; width: 100%;
+    }
+    .field input:focus, .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.12);
+    }
+    .field input[readonly] { opacity: .55; cursor: default; }
+    .field textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+    .field .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Info row (read-only display) ── */
+    .info-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label  { font-size: 13px; font-weight: 500; }
+    .info-value  { font-size: 13px; color: var(--muted); }
+    .info-badge  {
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .badge-admin { background: rgba(79,142,247,.15); color: var(--accent); }
+    .badge-user  { background: rgba(122,138,160,.12); color: var(--muted); }
+
+    /* ── Theme switcher ── */
+    .theme-cards { display: flex; gap: 12px; }
+    .theme-card {
+      flex: 1; border: 2px solid var(--border); border-radius: 10px;
+      overflow: hidden; cursor: pointer; transition: border-color .15s;
+      position: relative;
+    }
+    .theme-card:hover { border-color: var(--muted); }
+    .theme-card.selected { border-color: var(--accent); }
+    .theme-card.selected::after {
+      content: '✓'; position: absolute; top: 8px; right: 8px;
+      background: var(--accent); color: #fff;
+      width: 20px; height: 20px; border-radius: 50%;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .theme-preview { height: 64px; display: flex; gap: 4px; padding: 8px; }
+    .tp-sidebar { width: 28%; background: rgba(0,0,0,.3); border-radius: 4px; }
+    .tp-main   { flex: 1; background: rgba(255,255,255,.1); border-radius: 4px; }
+    .theme-card[data-theme="light"] .theme-preview { background: #f3f4f8; }
+    .theme-card[data-theme="light"] .tp-sidebar { background: #ffffff; border: 1px solid #dde1ea; }
+    .theme-card[data-theme="light"] .tp-main   { background: #ffffff; border: 1px solid #dde1ea; }
+    .theme-card[data-theme="dark"]  .theme-preview { background: #0d0f14; }
+    .theme-card[data-theme="dark"]  .tp-sidebar { background: #161b25; }
+    .theme-card[data-theme="dark"]  .tp-main   { background: #1e2535; }
+    .theme-label { padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--text); background: var(--surface); }
+
+    /* ── Danger zone ── */
+    .danger-zone .section-header { border-color: rgba(248,113,113,.2); }
+    .danger-zone { border-color: rgba(248,113,113,.25); }
+    .danger-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .danger-row:last-child { border-bottom: none; }
+    .danger-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: background .15s, opacity .15s;
+      border: none;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #3a78e8; }
+    .btn-outline  { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--muted); }
+    .btn-danger   { background: rgba(248,113,113,.12); color: var(--danger); border: 1px solid rgba(248,113,113,.3); }
+    .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,.2); }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+    .section-footer {
+      padding: 14px 24px; background: rgba(255,255,255,.02);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: #1e2535; border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      transform: translateY(80px); opacity: 0;
+      transition: transform .25s ease, opacity .25s ease;
+      z-index: 999; pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-color: rgba(52,211,153,.3); }
+    .toast.error   { border-color: rgba(248,113,113,.3); }
+    .toast-icon    { font-size: 16px; }
+
+    /* ── Avatar circle ── */
+    .profile-avatar-row {
+      display: flex; align-items: center; gap: 20px; padding: 4px 0 8px;
+    }
+    .profile-avatar-big {
+      width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 700; color: #fff;
+    }
+    .profile-avatar-info { flex: 1; }
+    .profile-avatar-name { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+    .profile-avatar-email { font-size: 12px; color: var(--muted); }
+
+    /* ── Stat badges ── */
+    .stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat-chip {
+      background: rgba(79,142,247,.08); border: 1px solid rgba(79,142,247,.2);
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 12px; color: var(--muted);
+    }
+    .stat-chip strong { color: var(--text); display: block; font-size: 18px; font-weight: 700; }
+
+    @media (max-width: 700px) {
+      .main { padding: 24px 16px; }
+      .form-row { flex-direction: column; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <a class="brand" href="/mail">
+    <div class="brand-icon">✉</div>
+    <div class="brand-name">Go<span>Dev</span> Mail</div>
+  </a>
+
+  <div class="sidebar-section-label">Navigation</div>
+  <a class="nav-item" href="/mail">
+    <span class="nav-icon">📥</span> Inbox
+  </a>
+  <a class="nav-item" href="/mail">
+    <span class="nav-icon">📤</span> Sent
+  </a>
+
+  <hr class="sidebar-divider" />
+
+  <div class="sidebar-section-label">Settings</div>
+  <button class="nav-item active" data-tab="general">
+    <span class="nav-icon">⚙</span> General
+  </button>
+  <button class="nav-item" data-tab="profile">
+    <span class="nav-icon">👤</span> Profile
+  </button>
+  <button class="nav-item" data-tab="security">
+    <span class="nav-icon">🔒</span> Security
+  </button>
+  <button class="nav-item" data-tab="appearance">
+    <span class="nav-icon">🎨</span> Appearance
+  </button>
+
+  <div class="sidebar-user">
+    <div class="user-avatar" id="sidebar-avatar">?</div>
+    <div class="user-email" id="sidebar-email">Loading…</div>
+    <button class="logout-btn" id="logout-btn" title="Sign out">↩</button>
+  </div>
+</aside>
+
+<!-- ── Main content ── -->
+<main class="main" id="main">
+
+  <!-- ─── GENERAL tab ─── -->
+  <div class="tab-content" id="tab-general">
+    <div class="page-header">
+      <div class="page-title">General Settings</div>
+      <div class="page-sub">Manage your email signature and default preferences.</div>
+    </div>
+
+    <!-- Signature -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">✍</span>
+        <div>
+          <div class="section-title">Email Signature</div>
+          <div class="section-desc">Automatically appended to every new message you compose.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label>Signature Text</label>
+          <textarea id="signature-text" placeholder="e.g. — Jane Doe&#10;Software Engineer @ GoDev&#10;jane@godev.com" rows="5"></textarea>
+          <div class="hint">Max 1000 characters. Plain text only.</div>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-primary" id="save-signature-btn">Save Signature</button>
+        <button class="btn btn-outline btn-sm" id="clear-signature-btn">Clear</button>
+        <span id="signature-status" style="font-size:12px;color:var(--success);margin-left:auto;"></span>
+      </div>
+    </div>
+
+    <!-- Account stats -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">📊</span>
+        <div>
+          <div class="section-title">Account Summary</div>
+          <div class="section-desc">Quick overview of your GoDev Mail activity.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="stat-row" id="stat-row">
+          <div class="stat-chip"><strong id="stat-inbox">—</strong> Inbox</div>
+          <div class="stat-chip"><strong id="stat-sent">—</strong> Sent</div>
+          <div class="stat-chip"><strong id="stat-unread">—</strong> Unread</div>
+          <div class="stat-chip"><strong id="stat-joined">—</strong> Member since</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── PROFILE tab ─── -->
+  <div class="tab-content" id="tab-profile" style="display:none">
+    <div class="page-header">
+      <div class="page-title">Profile</div>
+      <div class="page-sub">Your public account information.</div>
+    </div>
+
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">👤</span>
+        <div>
+          <div class="section-title">Your Account</div>
+          <div class="section-desc">Details tied to your GoDev Mail identity.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="profile-avatar-row">
+          <div class="profile-avatar-big" id="profile-avatar">?</div>
+          <div class="profile-avatar-info">
+            <div class="profile-avatar-name" id="profile-display-name">—</div>
+            <div class="profile-avatar-email" id="profile-email-sub">—</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Display Name</label>
+            <input type="text" id="display-name-input" placeholder="How you appear in sent mail" maxlength="60" />
+            <div class="hint">Shown as sender name in outgoing messages.</div>
+          </div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="profile-username" readonly />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Email Address</label>
+            <input type="text" id="profile-email" readonly />
+          </div>
+          <div class="field">
+            <label>Phone</label>
+            <input type="text" id="profile-phone" readonly />
+          </div>
+        </div>
+        <div class="info-row" style="margin-top:4px">
+          <span class="info-label">Account role</span>
+          <span class="info-badge" id="profile-role-badge">User</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Member since</span>
+          <span class="info-value" id="profile-joined">—</span>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-primary" id="save-profile-btn">Save Changes</button>
+        <span id="profile-status" style="font-size:12px;color:var(--success);margin-left:auto;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECURITY tab ─── -->
+  <div class="tab-content" id="tab-security" style="display:none">
+    <div class="page-header">
+      <div class="page-title">Security</div>
+      <div class="page-sub">Manage your password and account access.</div>
+    </div>
+
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">🔑</span>
+        <div>
+          <div class="section-title">Change Password</div>
+          <div class="section-desc">Use a strong password with at least 8 characters.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label>Current Password</label>
+          <div style="position:relative">
+            <input type="password" id="current-password" placeholder="Your current password" style="padding-right:42px" />
+            <button type="button" class="eye-btn" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px" data-target="current-password">👁</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>New Password</label>
+          <div style="position:relative">
+            <input type="password" id="new-password" placeholder="Min. 8 characters" style="padding-right:42px" />
+            <button type="button" class="eye-btn" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px" data-target="new-password">👁</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Confirm New Password</label>
+          <div style="position:relative">
+            <input type="password" id="confirm-password" placeholder="Re-enter new password" style="padding-right:42px" />
+            <button type="button" class="eye-btn" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px" data-target="confirm-password">👁</button>
+          </div>
+          <div class="hint" id="confirm-pw-hint"></div>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-primary" id="save-password-btn">Update Password</button>
+        <span id="password-status" style="font-size:12px;margin-left:auto;"></span>
+      </div>
+    </div>
+
+    <!-- Session info -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">🛡</span>
+        <div>
+          <div class="section-title">Active Session</div>
+          <div class="section-desc">Your current authenticated session details.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="info-row">
+          <span class="info-label">Auth method</span>
+          <span class="info-value">JWT (JSON Web Token)</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Session expires</span>
+          <span class="info-value" id="token-expiry">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Storage</span>
+          <span class="info-value">Browser localStorage</span>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-danger btn-sm" id="sign-out-all-btn">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── APPEARANCE tab ─── -->
+  <div class="tab-content" id="tab-appearance" style="display:none">
+    <div class="page-header">
+      <div class="page-title">Appearance</div>
+      <div class="page-sub">Customize the look and feel of GoDev Mail.</div>
+    </div>
+
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">🎨</span>
+        <div>
+          <div class="section-title">Theme</div>
+          <div class="section-desc">Choose between dark and light mode.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="theme-cards">
+          <div class="theme-card" data-theme="dark">
+            <div class="theme-preview">
+              <div class="tp-sidebar"></div>
+              <div class="tp-main"></div>
+            </div>
+            <div class="theme-label">🌙 Dark</div>
+          </div>
+          <div class="theme-card" data-theme="light">
+            <div class="theme-preview">
+              <div class="tp-sidebar"></div>
+              <div class="tp-main"></div>
+            </div>
+            <div class="theme-label">☀️ Light</div>
+          </div>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-primary" id="save-theme-btn">Apply Theme</button>
+        <span id="theme-status" style="font-size:12px;color:var(--success);margin-left:auto;"></span>
+      </div>
+    </div>
+
+    <!-- Compact density (localStorage only) -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">📐</span>
+        <div>
+          <div class="section-title">Display Density</div>
+          <div class="section-desc">Control how compact the message list appears.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="radio" name="density" value="comfortable" style="accent-color:var(--accent)"> Comfortable
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="radio" name="density" value="compact" style="accent-color:var(--accent)"> Compact
+          </label>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-primary btn-sm" id="save-density-btn">Save</button>
+        <span id="density-status" style="font-size:12px;color:var(--success);margin-left:auto;"></span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toast-icon"></span>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+const TOKEN = localStorage.getItem('godev_token');
+if (!TOKEN) window.location.href = '/login';
+
+function auth() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` }; }
+
+// ── Theme ──────────────────────────────────────────────────────────────────────
+let currentTheme = localStorage.getItem('godev_theme') || 'dark';
+function applyTheme(t) { document.documentElement.setAttribute('data-theme', t); currentTheme = t; }
+applyTheme(currentTheme);
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = type === 'success' ? '✓' : '✗';
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+}
+
+// ── Tab navigation ─────────────────────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById(`tab-${tabId}`).style.display = 'block';
+  document.querySelectorAll('.nav-item[data-tab]').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tabId);
+  });
+  document.getElementById('main').scrollTop = 0;
+}
+document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ── Load settings ──────────────────────────────────────────────────────────────
+let userData = null;
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings', { headers: auth() });
+    if (res.status === 401) { localStorage.removeItem('godev_token'); window.location.href = '/login'; return; }
+    const data = await res.json();
+    userData = data.user;
+    populateUI(userData);
+  } catch { toast('Failed to load settings.', 'error'); }
+}
+
+function avatarColor(str) {
+  const COLORS = ['#4f8ef7','#7c3aed','#059669','#d97706','#dc2626','#0891b2'];
+  let h = 0; for (let c of str) h = (h*31 + c.charCodeAt(0)) % COLORS.length;
+  return COLORS[h];
+}
+
+function populateUI(u) {
+  const initials = (u.displayName || u.username || '?')[0].toUpperCase();
+  const color    = avatarColor(u.email);
+
+  // Sidebar
+  document.getElementById('sidebar-avatar').textContent = initials;
+  document.getElementById('sidebar-avatar').style.background = `linear-gradient(135deg,${color},#7c3aed)`;
+  document.getElementById('sidebar-email').textContent = u.email;
+
+  // Profile tab
+  document.getElementById('profile-avatar').textContent = initials;
+  document.getElementById('profile-avatar').style.background = `linear-gradient(135deg,${color},#7c3aed)`;
+  document.getElementById('profile-display-name').textContent = u.displayName || u.username;
+  document.getElementById('profile-email-sub').textContent   = u.email;
+  document.getElementById('display-name-input').value = u.displayName || '';
+  document.getElementById('profile-username').value   = u.username;
+  document.getElementById('profile-email').value      = u.email;
+  document.getElementById('profile-phone').value      = maskPhone(u.phone || '');
+  document.getElementById('profile-joined').textContent = new Date(u.createdAt).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  const roleBadge = document.getElementById('profile-role-badge');
+  roleBadge.textContent = u.role === 'admin' ? '★ Admin' : 'User';
+  roleBadge.className   = `info-badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`;
+
+  // General tab — signature
+  document.getElementById('signature-text').value = u.signature || '';
+
+  // Appearance — theme
+  applyTheme(u.theme || 'dark');
+  localStorage.setItem('godev_theme', u.theme || 'dark');
+  document.querySelectorAll('.theme-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.theme === (u.theme || 'dark'));
+  });
+
+  // Density from localStorage
+  const density = localStorage.getItem('godev_density') || 'comfortable';
+  document.querySelector(`input[name="density"][value="${density}"]`).checked = true;
+
+  // Security — JWT expiry
+  try {
+    const payload = JSON.parse(atob(TOKEN.split('.')[1]));
+    const exp = new Date(payload.exp * 1000);
+    document.getElementById('token-expiry').textContent = exp.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  } catch {}
+
+  // Account stats
+  loadStats();
+}
+
+function maskPhone(phone) {
+  const d = phone.replace(/\D/g,'');
+  return d.length > 4 ? '•'.repeat(d.length - 4) + d.slice(-4) : '••••';
+}
+
+async function loadStats() {
+  try {
+    const [inbox, sent, unread] = await Promise.all([
+      fetch('/api/mail/inbox',        { headers: auth() }).then(r=>r.json()),
+      fetch('/api/mail/sent',         { headers: auth() }).then(r=>r.json()),
+      fetch('/api/mail/unread-count', { headers: auth() }).then(r=>r.json()),
+    ]);
+    document.getElementById('stat-inbox').textContent  = inbox.messages?.length  ?? '—';
+    document.getElementById('stat-sent').textContent   = sent.messages?.length   ?? '—';
+    document.getElementById('stat-unread').textContent = unread.count             ?? '0';
+    document.getElementById('stat-joined').textContent = userData ? new Date(userData.createdAt).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '—';
+  } catch {}
+}
+
+// ── Save signature ─────────────────────────────────────────────────────────────
+document.getElementById('save-signature-btn').addEventListener('click', async () => {
+  const signature = document.getElementById('signature-text').value;
+  const btn = document.getElementById('save-signature-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/settings/signature', { method:'PATCH', headers: auth(), body: JSON.stringify({ signature }) });
+    const d = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed.', 'error'); return; }
+    toast('Signature saved!');
+    document.getElementById('signature-status').textContent = '✓ Saved';
+    setTimeout(() => { document.getElementById('signature-status').textContent = ''; }, 2500);
+  } catch { toast('Network error.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Save Signature'; }
+});
+
+document.getElementById('clear-signature-btn').addEventListener('click', () => {
+  document.getElementById('signature-text').value = '';
+});
+
+// ── Save profile ───────────────────────────────────────────────────────────────
+document.getElementById('save-profile-btn').addEventListener('click', async () => {
+  const displayName = document.getElementById('display-name-input').value.trim();
+  const btn = document.getElementById('save-profile-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/settings/profile', { method:'PATCH', headers: auth(), body: JSON.stringify({ displayName }) });
+    const d = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed.', 'error'); return; }
+    toast('Profile updated!');
+    document.getElementById('profile-display-name').textContent = displayName || (userData?.username || '');
+    document.getElementById('profile-status').textContent = '✓ Saved';
+    setTimeout(() => { document.getElementById('profile-status').textContent = ''; }, 2500);
+  } catch { toast('Network error.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
+});
+
+// ── Change password ────────────────────────────────────────────────────────────
+document.getElementById('confirm-password').addEventListener('input', () => {
+  const np = document.getElementById('new-password').value;
+  const cp = document.getElementById('confirm-password').value;
+  const hint = document.getElementById('confirm-pw-hint');
+  if (!cp) { hint.textContent = ''; return; }
+  hint.textContent = np === cp ? '✓ Passwords match' : '✗ Passwords do not match';
+  hint.style.color = np === cp ? 'var(--success)' : 'var(--danger)';
+});
+
+document.getElementById('save-password-btn').addEventListener('click', async () => {
+  const currentPassword = document.getElementById('current-password').value;
+  const newPassword     = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+  const status = document.getElementById('password-status');
+
+  if (!currentPassword || !newPassword || !confirmPassword) { toast('Please fill in all password fields.', 'error'); return; }
+  if (newPassword !== confirmPassword) { toast('New passwords do not match.', 'error'); return; }
+  if (newPassword.length < 8) { toast('Password must be at least 8 characters.', 'error'); return; }
+
+  const btn = document.getElementById('save-password-btn');
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    const res = await fetch('/api/settings/password', { method:'PATCH', headers: auth(), body: JSON.stringify({ currentPassword, newPassword }) });
+    const d = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed.', 'error'); status.style.color='var(--danger)'; status.textContent=d.error||'Failed.'; return; }
+    toast('Password updated successfully!');
+    status.style.color = 'var(--success)'; status.textContent = '✓ Password changed';
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  } catch { toast('Network error.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Update Password'; }
+});
+
+// ── Theme selection ────────────────────────────────────────────────────────────
+let selectedTheme = currentTheme;
+document.querySelectorAll('.theme-card').forEach(card => {
+  card.addEventListener('click', () => {
+    selectedTheme = card.dataset.theme;
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.toggle('selected', c.dataset.theme === selectedTheme));
+    applyTheme(selectedTheme);
+  });
+});
+
+document.getElementById('save-theme-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('save-theme-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/settings/theme', { method:'PATCH', headers: auth(), body: JSON.stringify({ theme: selectedTheme }) });
+    const d = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed.', 'error'); return; }
+    localStorage.setItem('godev_theme', selectedTheme);
+    toast('Theme applied!');
+    document.getElementById('theme-status').textContent = '✓ Applied';
+    setTimeout(() => { document.getElementById('theme-status').textContent = ''; }, 2500);
+  } catch { toast('Network error.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Apply Theme'; }
+});
+
+// ── Density ────────────────────────────────────────────────────────────────────
+document.getElementById('save-density-btn').addEventListener('click', () => {
+  const val = document.querySelector('input[name="density"]:checked')?.value || 'comfortable';
+  localStorage.setItem('godev_density', val);
+  toast('Density preference saved!');
+  document.getElementById('density-status').textContent = '✓ Saved';
+  setTimeout(() => { document.getElementById('density-status').textContent = ''; }, 2500);
+});
+
+// ── Eye toggles ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.eye-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const inp = document.getElementById(btn.dataset.target);
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+document.getElementById('logout-btn').addEventListener('click', () => {
+  ['godev_token','godev_email','godev_role','godev_theme'].forEach(k => localStorage.removeItem(k));
+  window.location.href = '/login';
+});
+document.getElementById('sign-out-all-btn').addEventListener('click', () => {
+  ['godev_token','godev_email','godev_role','godev_theme'].forEach(k => localStorage.removeItem(k));
+  window.location.href = '/login';
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+// Check URL hash for tab
+const hashTab = location.hash.replace('#','');
+if (['general','profile','security','appearance'].includes(hashTab)) switchTab(hashTab);
+loadSettings();
+</script>
+</body>
+</html>

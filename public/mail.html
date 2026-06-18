@@ -277,6 +277,12 @@
       <div class="mail-nav-item" data-folder="trash">
         <div class="mail-nav-left"><span class="nav-icon">🗑</span> <span>Trash</span></div>
       </div>
+
+      <hr class="sidebar-divider" style="margin:8px 0" />
+
+      <div class="mail-nav-item" id="settings-link" onclick="window.location.href='/settings'">
+        <div class="mail-nav-left"><span class="nav-icon">⚙</span> <span>Settings</span></div>
+      </div>
     </nav>
 
     <hr class="sidebar-divider" />
@@ -348,6 +354,28 @@ function authHeaders(extra) {
   return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}`, ...(extra||{}) };
 }
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function applyMailTheme(theme) {
+  if (theme === 'light') {
+    document.body.style.setProperty('--bg',      '#f3f4f8');
+    document.body.style.setProperty('--surface', '#ffffff');
+    document.body.style.setProperty('--border',  '#dde1ea');
+    document.body.style.setProperty('--text',    '#1a202c');
+    document.body.style.setProperty('--muted',   '#6b7280');
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.body.style.removeProperty('--bg');
+    document.body.style.removeProperty('--surface');
+    document.body.style.removeProperty('--border');
+    document.body.style.removeProperty('--text');
+    document.body.style.removeProperty('--muted');
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+  localStorage.setItem('godev_theme', theme);
+}
+// Apply stored theme immediately to avoid flash
+applyMailTheme(localStorage.getItem('godev_theme') || 'dark');
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let me = null;
 let currentFolder = 'inbox';
@@ -383,15 +411,21 @@ async function api(method, url, body) {
 }
 
 // ── Load current user ─────────────────────────────────────────────────────────
+let userSignature = '';
 async function loadMe() {
   const r = await fetch('/api/me', { headers: authHeaders() });
   if (r.status === 401) { localStorage.removeItem('godev_token'); window.location.href='/login'; return; }
   me = await r.json();
+  userSignature = me.signature || '';
   document.getElementById('sidebar-avatar').textContent = initial(me.email);
   document.getElementById('sidebar-avatar').style.background = `linear-gradient(135deg, ${avatarColor(me.email)}, #7c3aed)`;
   document.getElementById('sidebar-email').textContent = me.email;
   document.getElementById('sidebar-role').textContent  = me.role === 'admin' ? '★ Admin' : '';
   document.title = `GoDev Mail — ${me.email}`;
+
+  // Apply saved theme
+  const theme = me.theme || localStorage.getItem('godev_theme') || 'dark';
+  applyMailTheme(theme);
   loadUnreadCount();
 }
 
@@ -546,17 +580,26 @@ async function permDelete(id) {
 }
 
 // ── Compose ───────────────────────────────────────────────────────────────────
+function signatureBlock() {
+  return userSignature ? `\n\n— \n${userSignature}` : '';
+}
 function openCompose(to='', subject='', body='') {
   document.getElementById('compose-to').value      = to;
   document.getElementById('compose-subject').value = subject;
-  document.getElementById('compose-body').value    = body;
+  document.getElementById('compose-body').value    = body || signatureBlock();
   document.getElementById('compose-status').textContent = '';
   document.getElementById('compose-overlay').style.display = 'flex';
-  setTimeout(() => document.getElementById(to ? 'compose-subject':'compose-to').focus(), 50);
+  const focusId = to ? 'compose-subject' : 'compose-to';
+  setTimeout(() => {
+    const el = document.getElementById(focusId);
+    el.focus();
+    // Place cursor at the top of the textarea
+    if (!to) document.getElementById('compose-body').setSelectionRange(0, 0);
+  }, 50);
 }
 function openReply(from, subject) {
   const subj = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
-  openCompose(from, subj, '\n\n─────────────────────\n');
+  openCompose(from, subj, `${signatureBlock()}\n\n─────────────────────\n`);
 }
 function closeCompose() {
   document.getElementById('compose-overlay').style.display = 'none';

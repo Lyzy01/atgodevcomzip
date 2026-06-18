@@ -340,6 +340,64 @@ app.delete('/api/mail/message/:id/permanent', requireAuth, async (req, res) => {
   } catch { return res.status(500).json({ error: 'Server error.' }); }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SETTINGS API
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'settings.html')));
+
+app.get('/api/settings', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('username email phone displayName signature theme createdAt role');
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    return res.json({ user });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.patch('/api/settings/profile', requireAuth, async (req, res) => {
+  try {
+    const { displayName } = req.body;
+    if (typeof displayName !== 'string') return res.status(400).json({ error: 'Invalid display name.' });
+    const trimmed = displayName.trim().slice(0, 60);
+    await User.findByIdAndUpdate(req.user.userId, { displayName: trimmed });
+    return res.json({ message: 'Profile updated.' });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.patch('/api/settings/signature', requireAuth, async (req, res) => {
+  try {
+    const signature = (req.body.signature || '').slice(0, 1000);
+    await User.findByIdAndUpdate(req.user.userId, { signature });
+    return res.json({ message: 'Signature saved.' });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.patch('/api/settings/password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords are required.' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (!await bcrypt.compare(currentPassword, user.passwordHash))
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await user.save();
+    return res.json({ message: 'Password changed successfully.' });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.patch('/api/settings/theme', requireAuth, async (req, res) => {
+  try {
+    const { theme } = req.body;
+    if (!['dark', 'light'].includes(theme)) return res.status(400).json({ error: 'Invalid theme.' });
+    await User.findByIdAndUpdate(req.user.userId, { theme });
+    return res.json({ message: 'Theme saved.' });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
