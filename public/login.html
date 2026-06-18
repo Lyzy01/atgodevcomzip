@@ -39,12 +39,15 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
-      Secured with bcrypt &amp; Helmet.js
+      Secured with bcrypt &amp; JWT authentication
     </div>
     <div class="footer-link">Don't have an account? <a href="/">Sign up →</a></div>
   </div>
 
   <script>
+    // If already logged in, redirect
+    if (localStorage.getItem('godev_token')) window.location.href = '/mail';
+
     document.querySelectorAll('.eye-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const inp = document.getElementById(btn.dataset.target);
@@ -80,10 +83,12 @@
         const data = await res.json();
         if (!res.ok) { showAlert(data.error || 'Sign in failed.', 'error'); return; }
 
+        localStorage.setItem('godev_token', data.token);
+        localStorage.setItem('godev_email', data.email);
+        localStorage.setItem('godev_role',  data.role);
+
         showAlert('Signed in! Opening your inbox…', 'success');
-        setTimeout(() => {
-          window.location.href = data.role === 'admin' ? '/mail' : '/mail';
-        }, 700);
+        setTimeout(() => { window.location.href = '/mail'; }, 600);
       } catch {
         showAlert('Network error. Please try again.', 'error');
       } finally {

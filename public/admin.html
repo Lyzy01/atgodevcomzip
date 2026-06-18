@@ -86,6 +86,13 @@
   </div>
 
   <script>
+    const TOKEN = localStorage.getItem('godev_token');
+    if (!TOKEN) window.location.href = '/login';
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` };
+    }
+
     let allUsers = [];
 
     function maskPhone(phone) {
@@ -116,12 +123,11 @@
 
     async function loadUsers() {
       try {
-        const res = await fetch('/api/admin/users');
-        if (res.status === 401 || res.status === 403) { window.location.href = '/login'; return; }
+        const res = await fetch('/api/admin/users', { headers: authHeaders() });
+        if (res.status === 401 || res.status === 403) { localStorage.removeItem('godev_token'); window.location.href = '/login'; return; }
         const data = await res.json();
         allUsers = data.users;
 
-        // Stats
         const today = new Date().toDateString();
         document.getElementById('stat-total').textContent = allUsers.length;
         document.getElementById('stat-users').textContent = allUsers.filter(u => u.role === 'user').length;
@@ -138,7 +144,7 @@
     async function deleteUser(id, email) {
       if (!confirm(`Delete account ${email}? This cannot be undone.`)) return;
       try {
-        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: authHeaders() });
         const data = await res.json();
         if (!res.ok) { alert(data.error || 'Failed to delete.'); return; }
         allUsers = allUsers.filter(u => u._id !== id);
@@ -153,16 +159,18 @@
       renderTable(q ? allUsers.filter(u => u.email.includes(q)) : allUsers);
     });
 
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await fetch('/api/logout', { method: 'POST' });
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      localStorage.removeItem('godev_token');
+      localStorage.removeItem('godev_email');
+      localStorage.removeItem('godev_role');
       window.location.href = '/login';
     });
 
     async function loadMe() {
-      const res = await fetch('/api/me');
-      if (res.status === 401) { window.location.href = '/login'; return; }
+      const res = await fetch('/api/me', { headers: authHeaders() });
+      if (res.status === 401) { localStorage.removeItem('godev_token'); window.location.href = '/login'; return; }
       const data = await res.json();
-      if (data.role !== 'admin') { window.location.href = '/dashboard'; return; }
+      if (data.role !== 'admin') { window.location.href = '/mail'; return; }
       document.getElementById('admin-email').textContent = data.email;
     }
 

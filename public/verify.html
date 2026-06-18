@@ -19,17 +19,9 @@
     <form id="verify-form" novalidate>
       <div class="form-group">
         <label for="otp">Verification Code</label>
-        <input
-          type="text"
-          id="otp"
-          class="otp-input"
-          placeholder="000000"
-          maxlength="6"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          autocomplete="one-time-code"
-          required
-        />
+        <input type="text" id="otp" class="otp-input" placeholder="000000"
+          maxlength="6" inputmode="numeric" pattern="[0-9]*"
+          autocomplete="one-time-code" required />
       </div>
       <button type="submit" id="submit-btn">Verify &amp; Create Account</button>
     </form>
@@ -47,18 +39,19 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
       </svg>
-      OTP is hashed with bcrypt · One-time use · Auto-deletes after 5 min
+      OTP hashed with bcrypt · One-time use · Auto-deletes after 5 min
     </div>
   </div>
 
   <script>
+    const phone = localStorage.getItem('godev_pending_phone') || '';
+    if (!phone) { window.location.href = '/'; }
+
     const otpInput  = document.getElementById('otp');
     const submitBtn = document.getElementById('submit-btn');
     const alertEl   = document.getElementById('alert');
 
-    otpInput.addEventListener('input', () => {
-      otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 6);
-    });
+    otpInput.addEventListener('input', () => { otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 6); });
 
     function showAlert(msg, type) { alertEl.textContent = msg; alertEl.className = `alert show alert-${type}`; }
     function setLoading(on) {
@@ -77,10 +70,15 @@
         const res = await fetch('/api/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ otp }),
+          body: JSON.stringify({ phone, otp }),
         });
         const data = await res.json();
         if (!res.ok) { showAlert(data.error || 'Verification failed.', 'error'); return; }
+
+        localStorage.setItem('godev_token', data.token);
+        localStorage.setItem('godev_email', data.email);
+        localStorage.setItem('godev_role',  data.role);
+        localStorage.removeItem('godev_pending_phone');
 
         document.getElementById('verify-form').style.display = 'none';
         document.getElementById('email-address').textContent = data.email;

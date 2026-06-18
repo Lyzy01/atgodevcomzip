@@ -340,6 +340,14 @@
 </div>
 
 <script>
+// ── Auth token ────────────────────────────────────────────────────────────────
+const TOKEN = localStorage.getItem('godev_token');
+if (!TOKEN) window.location.href = '/login';
+
+function authHeaders(extra) {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}`, ...(extra||{}) };
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let me = null;
 let currentFolder = 'inbox';
@@ -367,16 +375,17 @@ function formatFull(dateStr) {
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 async function api(method, url, body) {
-  const opts = { method, headers:{'Content-Type':'application/json'} };
+  const opts = { method, headers: authHeaders() };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(url, opts);
+  if (r.status === 401) { localStorage.removeItem('godev_token'); window.location.href='/login'; }
   return r;
 }
 
 // ── Load current user ─────────────────────────────────────────────────────────
 async function loadMe() {
-  const r = await fetch('/api/me');
-  if (r.status === 401) { window.location.href='/login'; return; }
+  const r = await fetch('/api/me', { headers: authHeaders() });
+  if (r.status === 401) { localStorage.removeItem('godev_token'); window.location.href='/login'; return; }
   me = await r.json();
   document.getElementById('sidebar-avatar').textContent = initial(me.email);
   document.getElementById('sidebar-avatar').style.background = `linear-gradient(135deg, ${avatarColor(me.email)}, #7c3aed)`;
@@ -389,7 +398,7 @@ async function loadMe() {
 // ── Unread badge ──────────────────────────────────────────────────────────────
 async function loadUnreadCount() {
   try {
-    const r = await fetch('/api/mail/unread-count');
+    const r = await fetch('/api/mail/unread-count', { headers: authHeaders() });
     const d = await r.json();
     const badge = document.getElementById('inbox-badge');
     if (d.count > 0) { badge.textContent = d.count; badge.classList.add('show'); }
@@ -416,8 +425,8 @@ async function loadFolder(folder) {
     '<div class="no-msg-selected"><div class="no-msg-icon">✉</div><div class="no-msg-text">Select a message to read</div></div>';
 
   try {
-    const r = await fetch(`/api/mail/${folder}`);
-    if (r.status === 401) { window.location.href='/login'; return; }
+    const r = await fetch(`/api/mail/${folder}`, { headers: authHeaders() });
+    if (r.status === 401) { localStorage.removeItem('godev_token'); window.location.href='/login'; return; }
     const d = await r.json();
     messages = d.messages || [];
     renderList();
@@ -475,7 +484,7 @@ async function openMessage(id) {
     '<div class="no-msg-selected"><div class="mail-empty-icon">⏳</div></div>';
 
   try {
-    const r = await fetch(`/api/mail/message/${id}`);
+    const r = await fetch(`/api/mail/message/${id}`, { headers: authHeaders() });
     if (!r.ok) return;
     const { message:msg } = await r.json();
 
@@ -590,8 +599,10 @@ document.querySelectorAll('.mail-nav-item').forEach(el => {
 });
 
 // ── Logout ────────────────────────────────────────────────────────────────────
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await fetch('/api/logout', { method:'POST' });
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('godev_token');
+  localStorage.removeItem('godev_email');
+  localStorage.removeItem('godev_role');
   window.location.href = '/login';
 });
 
