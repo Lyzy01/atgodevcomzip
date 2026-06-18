@@ -665,7 +665,11 @@ function populateUI(u) {
     document.getElementById('token-expiry').textContent = exp.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
   } catch {}
 
-  // Account stats
+  // Member since is known immediately — set it now
+  document.getElementById('stat-joined').textContent =
+    new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+  // Mail stats load separately
   loadStats();
 }
 
@@ -676,16 +680,40 @@ function maskPhone(phone) {
 
 async function loadStats() {
   try {
-    const [inbox, sent, unread] = await Promise.all([
-      fetch('/api/mail/inbox',        { headers: auth() }).then(r=>r.json()),
-      fetch('/api/mail/sent',         { headers: auth() }).then(r=>r.json()),
-      fetch('/api/mail/unread-count', { headers: auth() }).then(r=>r.json()),
+    const results = await Promise.allSettled([
+      fetch('/api/mail/inbox',        { headers: auth() }),
+      fetch('/api/mail/sent',         { headers: auth() }),
+      fetch('/api/mail/unread-count', { headers: auth() }),
     ]);
-    document.getElementById('stat-inbox').textContent  = inbox.messages?.length  ?? '—';
-    document.getElementById('stat-sent').textContent   = sent.messages?.length   ?? '—';
-    document.getElementById('stat-unread').textContent = unread.count             ?? '0';
-    document.getElementById('stat-joined').textContent = userData ? new Date(userData.createdAt).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '—';
-  } catch {}
+
+    const [inboxRes, sentRes, unreadRes] = results;
+
+    if (inboxRes.status === 'fulfilled' && inboxRes.value.ok) {
+      const d = await inboxRes.value.json();
+      document.getElementById('stat-inbox').textContent = d.messages?.length ?? 0;
+    } else {
+      document.getElementById('stat-inbox').textContent = '0';
+    }
+
+    if (sentRes.status === 'fulfilled' && sentRes.value.ok) {
+      const d = await sentRes.value.json();
+      document.getElementById('stat-sent').textContent = d.messages?.length ?? 0;
+    } else {
+      document.getElementById('stat-sent').textContent = '0';
+    }
+
+    if (unreadRes.status === 'fulfilled' && unreadRes.value.ok) {
+      const d = await unreadRes.value.json();
+      document.getElementById('stat-unread').textContent = d.count ?? 0;
+    } else {
+      document.getElementById('stat-unread').textContent = '0';
+    }
+  } catch (err) {
+    console.error('loadStats error:', err);
+    ['stat-inbox','stat-sent','stat-unread'].forEach(id => {
+      document.getElementById(id).textContent = '0';
+    });
+  }
 }
 
 // ── Save signature ─────────────────────────────────────────────────────────────

@@ -16,6 +16,10 @@
         <div class="brand-name">Go<span>Dev</span> Mail</div>
       </div>
       <nav class="sidebar-nav">
+        <a class="nav-item" href="/mail" style="color:#4f8ef7;margin-bottom:6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Inbox
+        </a>
         <a class="nav-item active" href="/admin">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           Dashboard
@@ -34,7 +38,12 @@
     <!-- Main Content -->
     <main class="admin-main">
       <div class="admin-topbar">
-        <h2 class="admin-title">Admin Panel</h2>
+        <div style="display:flex;align-items:center;gap:14px">
+          <a href="/mail" style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:#4f8ef7;text-decoration:none;padding:6px 12px;border-radius:8px;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.25);transition:background .15s" onmouseover="this.style.background='rgba(79,142,247,.2)'" onmouseout="this.style.background='rgba(79,142,247,.1)'">
+            ← Inbox
+          </a>
+          <h2 class="admin-title">Admin Panel</h2>
+        </div>
         <span class="admin-badge">★ Administrator</span>
       </div>
 
