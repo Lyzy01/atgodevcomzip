@@ -31,7 +31,6 @@
           required
         />
       </div>
-
       <button type="submit" id="submit-btn">Verify &amp; Create Account</button>
     </form>
 
@@ -42,9 +41,7 @@
       <div class="address" id="email-address"></div>
     </div>
 
-    <div class="footer-link">
-      Wrong number? <a href="/">Start over →</a>
-    </div>
+    <div class="footer-link">Wrong number? <a href="/">Start over →</a></div>
 
     <div class="security-row">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -72,7 +69,6 @@
     document.getElementById('verify-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       alertEl.className = 'alert';
-
       const otp = otpInput.value.trim();
       if (otp.length !== 6) { showAlert('Please enter the full 6-digit code.', 'error'); return; }
 
@@ -84,14 +80,13 @@
           body: JSON.stringify({ otp }),
         });
         const data = await res.json();
-
         if (!res.ok) { showAlert(data.error || 'Verification failed.', 'error'); return; }
 
         document.getElementById('verify-form').style.display = 'none';
         document.getElementById('email-address').textContent = data.email;
         document.getElementById('email-reveal').classList.add('show');
-        showAlert('🎉 Account created! Redirecting to your dashboard…', 'success');
-        setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+        showAlert('🎉 Account created! Taking you to your inbox…', 'success');
+        setTimeout(() => { window.location.href = '/mail'; }, 2000);
       } catch {
         showAlert('Network error. Please try again.', 'error');
       } finally {
