@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Verify Your Number</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">✉</div>
+      <div class="brand-name">Go<span>Dev</span> Mail</div>
+    </div>
+
+    <h1>Check your phone</h1>
+    <p class="subtitle">We sent a 6-digit code. Enter it below — it expires in 5 minutes.</p>
+
+    <div class="phone-hint" id="phone-hint">
+      📱 <span id="phone-display">your phone number</span>
+    </div>
+
+    <form id="verify-form" novalidate>
+      <div class="form-group">
+        <label for="otp">Verification Code</label>
+        <input
+          type="text"
+          id="otp"
+          name="otp"
+          class="otp-input"
+          placeholder="000000"
+          maxlength="6"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="one-time-code"
+          required
+        />
+      </div>
+
+      <button type="submit" id="submit-btn">Verify &amp; Create Account</button>
+    </form>
+
+    <div class="alert" id="alert"></div>
+
+    <div class="email-reveal" id="email-reveal">
+      <div class="label">Your new email address</div>
+      <div class="address" id="email-address"></div>
+    </div>
+
+    <div class="footer-link">
+      Wrong number? <a href="/">Start over →</a>
+    </div>
+
+    <div class="security-row">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      OTP is hashed with bcrypt · One-time use · Auto-deletes after 5 min
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('verify-form');
+    const otpInput = document.getElementById('otp');
+    const submitBtn = document.getElementById('submit-btn');
+    const alertEl = document.getElementById('alert');
+    const emailReveal = document.getElementById('email-reveal');
+    const emailAddress = document.getElementById('email-address');
+    const phoneDisplay = document.getElementById('phone-display');
+
+    // Restore phone number from session storage
+    const savedPhone = sessionStorage.getItem('godev_phone') || '';
+    if (savedPhone) phoneDisplay.textContent = savedPhone;
+
+    // Only allow numeric input
+    otpInput.addEventListener('input', () => {
+      otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+    function showAlert(message, type) {
+      alertEl.textContent = message;
+      alertEl.className = `alert show alert-${type}`;
+    }
+
+    function hideAlert() {
+      alertEl.className = 'alert';
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.innerHTML = loading
+        ? '<span class="spinner"></span>Verifying…'
+        : 'Verify &amp; Create Account';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+
+      const phone = savedPhone || prompt('Enter your phone number:');
+      const otp = otpInput.value.trim();
+
+      if (!phone) {
+        showAlert('Phone number not found. Please start over.', 'error');
+        return;
+      }
+
+      if (otp.length !== 6) {
+        showAlert('Please enter the full 6-digit code.', 'error');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const res = await fetch('/api/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, otp }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert(data.error || 'Verification failed.', 'error');
+          return;
+        }
+
+        // Success!
+        sessionStorage.removeItem('godev_phone');
+        form.style.display = 'none';
+
+        emailAddress.textContent = data.email;
+        emailReveal.classList.add('show');
+
+        showAlert('🎉 Account created! Your GoDev email is ready.', 'success');
+      } catch (err) {
+        showAlert('Network error. Please check your connection.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

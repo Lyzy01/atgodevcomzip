@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoDev Mail — Get Your Free Email</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">✉</div>
+      <div class="brand-name">Go<span>Dev</span> Mail</div>
+    </div>
+
+    <h1>Claim your free email</h1>
+    <p class="subtitle">Enter your phone number and we'll send you a verification code to get started.</p>
+
+    <form id="signup-form" novalidate>
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          placeholder="+1 555 000 0000"
+          autocomplete="tel"
+          required
+        />
+      </div>
+
+      <button type="submit" id="submit-btn">Send Verification Code</button>
+    </form>
+
+    <div class="alert" id="alert"></div>
+
+    <div class="security-row">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Rate-limited &amp; secured with Helmet.js · No password required
+    </div>
+
+    <div class="footer-link">
+      Already signed up? <a href="/verify">Enter your OTP →</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('signup-form');
+    const phoneInput = document.getElementById('phone');
+    const submitBtn = document.getElementById('submit-btn');
+    const alert = document.getElementById('alert');
+
+    function showAlert(message, type) {
+      alert.textContent = message;
+      alert.className = `alert show alert-${type}`;
+    }
+
+    function hideAlert() {
+      alert.className = 'alert';
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.innerHTML = loading
+        ? '<span class="spinner"></span>Sending…'
+        : 'Send Verification Code';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+
+      const phone = phoneInput.value.trim();
+      if (!phone) {
+        showAlert('Please enter your phone number.', 'error');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const res = await fetch('/api/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert(data.error || 'Something went wrong.', 'error');
+          return;
+        }
+
+        // Store phone for the verify page
+        sessionStorage.setItem('godev_phone', phone);
+
+        showAlert('Code sent! Redirecting to verification…', 'success');
+        setTimeout(() => { window.location.href = '/verify'; }, 1400);
+      } catch (err) {
+        showAlert('Network error. Please check your connection.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

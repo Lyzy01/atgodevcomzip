@@ -1,0 +1,28 @@
+Act as an expert Full-Stack Node.js Developer and Cyber Security Specialist. Build a complete, production-ready web application for a custom email service where users sign up using their phone numbers, verify via an OTP code, and receive a "@godev.com" email address. 
+
+The application must be fully structured to be synced to GitHub and deployed seamlessly to Render's free tier.
+
+Project Architecture & Requirements:
+1. Tech Stack: Node.js, Express, Mongoose (MongoDB Atlas), and vanilla HTML/CSS/JS for the frontend.
+2. Port Configuration: Use `const PORT = process.env.PORT || 3000;` so Render can dynamically assign ports.
+3. Database: Use MongoDB to persist data. Do not use local JSON files, as Render's filesystem is ephemeral. Define schemas for:
+   - Users: Phone number, unique assigned email (@godev.com), and creation timestamp.
+   - OTPs: Phone number, hashed OTP code, and expiration timestamp.
+
+User Authentication Flow:
+1. Signup Page: User enters their phone number. 
+2. OTP Generation: The backend generates a secure 6-digit OTP. Create a mock SMS sending function with a clear `TODO` comment block where a Twilio API integration can be pasted later. For now, log the OTP to the server console so I can test it.
+3. OTP Storage: Store the OTP in MongoDB. Set a TTL index or a schema-based expiration so the OTP document self-deletes after 5 minutes.
+4. Verification Page: The user enters the code. The backend verifies it against the database. If valid and not expired, the backend creates the user's account, assigns them their "@godev.com" address, and deletes the OTP document.
+
+Security Implementations:
+- Implement 'express-rate-limit' on the OTP request endpoint to prevent API spamming and costly SMS abuse.
+- Use 'helmet' middleware to secure HTTP headers against basic vulnerabilities.
+- Ensure all sensitive data (like the database URI) uses `process.env.MONGO_URI` instead of being hardcoded, preparing it for Git and Render Environment Variables.
+- Include a standard '.gitignore' file specifying 'node_modules/' and '.env'.
+
+Provide the complete file structure and code for:
+- server.js (Main application and routes)
+- models/User.js and models/Otp.js (Mongoose Schemas)
+- public/index.html, public/verify.html, public/style.css (Clean, modern UI frontend)
+- package.json (With all required dependencies and a "start": "node server.js" script)
