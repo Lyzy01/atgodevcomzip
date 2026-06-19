@@ -10,6 +10,13 @@ const userSchema = new mongoose.Schema({
   signature:   { type: String, default: '' },
   theme:       { type: String, enum: ['dark', 'light'], default: 'dark' },
   createdAt:   { type: Date, default: Date.now },
+
+  // Google / Gmail OAuth
+  googleConnected:    { type: Boolean, default: false },
+  googleEmail:        { type: String, default: '' },
+  googleAccessToken:  { type: String, default: '' },
+  googleRefreshToken: { type: String, default: '' },
+  googleLastSync:     { type: Date, default: null },
 });
 
 module.exports = mongoose.model('User', userSchema);

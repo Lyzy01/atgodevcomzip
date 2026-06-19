@@ -523,6 +523,14 @@
         </div>
       </div>
 
+      <div class="nav-item" id="gmail-folder-item" data-folder="gmail" style="display:none">
+        <div class="nav-left">
+          <svg viewBox="0 0 24 24" style="color:#ea4335"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-.8 2L12 10.8 4.8 6h14.4zM4 18V8.2l8 5.2 8-5.2V18H4z" fill="#ea4335"/></svg>
+          <span>Gmail Inbox</span>
+        </div>
+        <span class="nav-badge" id="gmail-unread-badge"></span>
+      </div>
+
       <hr class="nav-divider" />
 
       <div class="nav-item" data-folder="settings">
@@ -637,6 +645,13 @@ function fmtShort(d){
   return D.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
 function fmtLong(d){ return new Date(d).toLocaleString('en-US',{month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }
+function timeAgo(d){
+  const s = Math.floor((Date.now()-new Date(d).getTime())/1000);
+  if (s<60) return 'just now';
+  if (s<3600) return `${Math.floor(s/60)}m ago`;
+  if (s<86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
 
 async function api(method, url, body){
   const opts = { method, headers: authH() };
@@ -659,6 +674,7 @@ async function loadMe(){
   document.title = `GoDev Mail — ${me.email}`;
   applyTheme(me.theme || localStorage.getItem('godev_theme') || 'dark');
   if (me.role === 'admin') document.getElementById('admin-link').style.display = '';
+  if (me.googleConnected) document.getElementById('gmail-folder-item').style.display = '';
   loadUnreadCount();
 }
 
@@ -674,12 +690,13 @@ async function loadUnreadCount(){
 }
 
 // ── Folder loading ────────────────────────────────────────────────────────────
-const FOLDER_TITLES = { inbox:'Inbox', starred:'Starred', sent:'Sent', all:'All Mail', trash:'Trash' };
-const FOLDER_EMPTY  = { inbox:'Your inbox is empty', starred:'No starred messages', sent:'No sent messages', all:'No messages', trash:'Trash is empty' };
+const FOLDER_TITLES = { inbox:'Inbox', starred:'Starred', sent:'Sent', all:'All Mail', trash:'Trash', gmail:'Gmail Inbox' };
+const FOLDER_EMPTY  = { inbox:'Your inbox is empty', starred:'No starred messages', sent:'No sent messages', all:'No messages', trash:'Trash is empty', gmail:'No Gmail messages synced yet' };
 
 async function loadFolder(folder){
   if (folder === 'settings') { openSettings(); return; }
   if (folder === 'admin')    { window.location.href = '/admin'; return; }
+  if (folder === 'gmail')    { loadGmailFolder(); return; }
 
   currentFolder = folder; selectedId = null;
 
@@ -749,6 +766,77 @@ function renderList(){
   }).join('');
 }
 
+// ── Gmail folder ──────────────────────────────────────────────────────────────
+async function loadGmailFolder(){
+  currentFolder = 'gmail'; selectedId = null;
+  showMailLayout();
+  document.querySelectorAll('.nav-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.folder === 'gmail'));
+  document.getElementById('folder-title').textContent = 'Gmail Inbox';
+  document.getElementById('list-body').innerHTML = [1,2,3].map(()=>
+    `<div class="sk"><div class="sk-av"></div><div class="sk-lines"><div class="sk-line sk-s"></div><div class="sk-line sk-f"></div><div class="sk-line sk-t"></div></div></div>`
+  ).join('');
+  document.getElementById('content-panel').innerHTML = `<div class="no-msg"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg><p>Select a message to read</p></div>`;
+
+  try {
+    const r = await fetch('/api/mail/gmail', { headers: authH() });
+    if (r.status === 401) { window.location.href='/login'; return; }
+    const d = await r.json();
+    messages = (d.messages || []).map(m => ({
+      _id: m._id, from: m.gmailFrom, to: m.gmailTo,
+      subject: m.subject, body: m.body || m.snippet,
+      read: m.read, starred: m.starred, sentAt: m.date, _isGmail: true,
+    }));
+    renderList();
+    // Update unread badge
+    const unread = messages.filter(m => !m.read).length;
+    const badge = document.getElementById('gmail-unread-badge');
+    if (unread > 0) { badge.textContent = unread; badge.classList.add('show'); }
+    else badge.classList.remove('show');
+  } catch {
+    document.getElementById('list-body').innerHTML = `<div class="list-empty"><p style="color:var(--danger)">Failed to load Gmail messages.</p></div>`;
+  }
+}
+
+async function openGmailMessage(id){
+  selectedId = id;
+  document.querySelectorAll('.msg-item').forEach(el =>
+    el.classList.toggle('selected', el.dataset.id === id));
+  document.getElementById('content-panel').innerHTML = `<div class="no-msg"></div>`;
+
+  try {
+    const r = await fetch(`/api/mail/gmail/${id}`, { headers: authH() });
+    if (!r.ok) return;
+    const { message: msg } = await r.json();
+    const local = messages.find(m => m._id === id);
+    if (local) { local.read = true; renderList(); document.querySelector(`[data-id="${id}"]`)?.classList.add('selected'); }
+
+    const fromName = (msg.gmailFrom || '').replace(/<.*>/, '').trim() || msg.gmailFrom.split('@')[0];
+    document.getElementById('content-panel').innerHTML = `
+      <div class="msg-view">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="background:rgba(234,67,53,.12);color:#ea4335;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.4px;text-transform:uppercase">Gmail</span>
+        </div>
+        <div class="msg-view-subject">${esc(msg.subject)}</div>
+        <div class="msg-view-meta">
+          <div class="msg-view-avatar" style="background:#ea4335">${(msg.gmailFrom||'G')[0].toUpperCase()}</div>
+          <div>
+            <div class="msg-view-from-name">${esc(fromName)}</div>
+            <div class="msg-view-from-email">${esc(msg.gmailFrom)}</div>
+            <div class="msg-view-to">To: ${esc(msg.gmailTo)}</div>
+          </div>
+          <div class="msg-view-date">${fmtLong(msg.date)}</div>
+        </div>
+        <div class="msg-view-body">${esc(msg.body || msg.snippet)}</div>
+        <div class="msg-actions">
+          <div style="font-size:12px;color:var(--muted);padding:4px 0">
+            This message was imported from Gmail. Reply from your Gmail account.
+          </div>
+        </div>
+      </div>`;
+  } catch {}
+}
+
 // ── Toggle star ───────────────────────────────────────────────────────────────
 async function toggleStar(id, btn){
   const r = await api('PATCH', `/api/mail/message/${id}/star`);
@@ -775,6 +863,9 @@ async function toggleStar(id, btn){
 
 // ── Open message ──────────────────────────────────────────────────────────────
 async function openMessage(id){
+  const gmailMsg = messages.find(m => m._id === id && m._isGmail);
+  if (gmailMsg) { openGmailMessage(id); return; }
+
   selectedId = id;
   document.querySelectorAll('.msg-item').forEach(el =>
     el.classList.toggle('selected', el.dataset.id === id));
@@ -950,7 +1041,7 @@ function buildSettingsHTML(){
   return `
     <div class="settings-sidebar">
       <div class="settings-title">Settings</div>
-      <div class="sp-nav-item active" data-sp="general">
+      <div class="sp-nav-item active" data-sp="general" id="sp-nav-general">
         <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
         General
       </div>
@@ -965,6 +1056,10 @@ function buildSettingsHTML(){
       <div class="sp-nav-item" data-sp="appearance">
         <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
         Appearance
+      </div>
+      <div class="sp-nav-item" data-sp="accounts" id="sp-nav-accounts">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-.8 2L12 10.8 4.8 6h14.4zM4 18V8.2l8 5.2 8-5.2V18H4z"/></svg>
+        Accounts
       </div>
     </div>
     <div class="settings-main">
@@ -1053,6 +1148,21 @@ function buildSettingsHTML(){
         </div>
       </div>
 
+      <!-- Accounts -->
+      <div class="sp-section" id="sp-accounts">
+        <div class="sp-section-title">Connected Accounts</div>
+        <div class="sp-section-sub">Sync messages from your external email accounts into GoDev Mail.</div>
+        <div class="sp-card" id="gmail-settings-card">
+          <div class="sp-card-title" style="display:flex;align-items:center;gap:10px">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-.8 2L12 10.8 4.8 6h14.4zM4 18V8.2l8 5.2 8-5.2V18H4z" fill="#ea4335"/></svg>
+            Gmail
+          </div>
+          <div id="gmail-connect-area" style="margin-top:14px">
+            <div class="sp-label" style="color:var(--muted)">Loading…</div>
+          </div>
+        </div>
+      </div>
+
     </div>`;
 }
 
@@ -1134,6 +1244,9 @@ function attachSettingsHandlers(){
     }
   });
 
+  // Accounts tab – load gmail status when clicked
+  document.querySelector('.sp-nav-item[data-sp="accounts"]')?.addEventListener('click', loadGmailStatus);
+
   // Save theme
   let selectedTheme = settingsData?.theme || localStorage.getItem('godev_theme') || 'dark';
   document.querySelectorAll('.theme-card').forEach(card => {
@@ -1155,6 +1268,86 @@ function attachSettingsHandlers(){
   });
 }
 
+// ── Gmail status / connect UI ──────────────────────────────────────────────────
+async function loadGmailStatus(){
+  const area = document.getElementById('gmail-connect-area');
+  if (!area) return;
+  area.innerHTML = `<div class="sp-label" style="color:var(--muted)">Loading…</div>`;
+  try {
+    const r = await fetch('/api/settings/gmail/status', { headers: authH() });
+    const d = await r.json();
+    if (!d.configured) {
+      area.innerHTML = `
+        <div class="sp-label" style="margin-bottom:12px">To enable Gmail sync, add your Google OAuth credentials as Replit Secrets:</div>
+        <div class="sp-card" style="background:var(--bg-hover);border:none;padding:14px 16px;margin-bottom:0">
+          <div style="font-size:12px;font-family:monospace;line-height:2;color:var(--text-sub)">
+            <b>GOOGLE_CLIENT_ID</b> — your OAuth 2.0 client ID<br>
+            <b>GOOGLE_CLIENT_SECRET</b> — your OAuth 2.0 client secret
+          </div>
+        </div>
+        <div class="sp-label" style="margin-top:12px;color:var(--muted)">
+          Create credentials at <b>console.cloud.google.com</b> → APIs &amp; Services → Credentials → OAuth 2.0 Client IDs.<br>
+          Enable the <b>Gmail API</b> and set the Authorized redirect URI to:<br>
+          <span style="font-family:monospace;font-size:12px">${location.origin}/auth/google/callback</span>
+        </div>`;
+      return;
+    }
+    if (d.connected) {
+      const lastSync = d.lastSync ? `Last synced ${timeAgo(d.lastSync)}` : 'Never synced';
+      area.innerHTML = `
+        <div class="sp-info-row" style="padding:0">
+          <span class="sp-info-label">Connected as</span>
+          <span class="sp-info-value" style="color:#ea4335">${esc(d.email)}</span>
+        </div>
+        <div class="sp-info-row" style="padding:0">
+          <span class="sp-info-label">Messages imported</span>
+          <span class="sp-info-value">${d.count}</span>
+        </div>
+        <div class="sp-info-row" style="padding:0">
+          <span class="sp-info-label">Sync status</span>
+          <span class="sp-info-value">${lastSync}</span>
+        </div>
+        <div class="sp-row" style="margin-top:16px;gap:10px">
+          <button class="sp-save-btn" id="gmail-sync-btn">Sync Now</button>
+          <button class="sp-save-btn" id="gmail-disconnect-btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger)">Disconnect</button>
+          <span class="sp-status" id="gmail-action-status"></span>
+        </div>`;
+      document.getElementById('gmail-sync-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('gmail-sync-btn');
+        btn.disabled = true; btn.textContent = 'Syncing…';
+        const r2 = await api('POST', '/api/settings/gmail/sync', {});
+        btn.disabled = false; btn.textContent = 'Sync Now';
+        if (r2?.ok) {
+          const d2 = await r2.json();
+          spStatus('gmail-action-status', `✓ ${d2.message}`, false);
+          document.getElementById('gmail-folder-item').style.display = '';
+          loadGmailStatus();
+        } else spStatus('gmail-action-status', 'Sync failed.', true);
+      });
+      document.getElementById('gmail-disconnect-btn')?.addEventListener('click', async () => {
+        if (!confirm('Disconnect Gmail? All imported messages will be removed.')) return;
+        const r2 = await api('DELETE', '/api/settings/gmail/disconnect', null);
+        if (r2?.ok) {
+          document.getElementById('gmail-folder-item').style.display = 'none';
+          loadGmailStatus();
+        } else spStatus('gmail-action-status', 'Failed to disconnect.', true);
+      });
+    } else {
+      area.innerHTML = `
+        <div class="sp-label" style="margin-bottom:14px">Connect your Gmail account to import and view your inbox messages right here in GoDev Mail.</div>
+        <button class="sp-save-btn" id="gmail-connect-btn" style="display:flex;align-items:center;gap:8px">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-.8 2L12 10.8 4.8 6h14.4zM4 18V8.2l8 5.2 8-5.2V18H4z" fill="currentColor"/></svg>
+          Connect Gmail
+        </button>`;
+      document.getElementById('gmail-connect-btn')?.addEventListener('click', () => {
+        window.location.href = `/auth/google?token=${localStorage.getItem('godev_token')}`;
+      });
+    }
+  } catch {
+    area.innerHTML = `<div class="sp-label" style="color:var(--danger)">Failed to load Gmail status.</div>`;
+  }
+}
+
 // ── Nav clicks ────────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item[data-folder]').forEach(el => {
   el.addEventListener('click', () => loadFolder(el.dataset.folder));
@@ -1170,8 +1363,28 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
+  const params = new URLSearchParams(location.search);
+  if (params.has('gmailConnected') || params.has('gmailError')) {
+    history.replaceState({}, '', '/mail');
+  }
+
   await loadMe();
   await loadFolder('inbox');
+
+  if (params.get('gmailConnected') === '1') {
+    // Brief delay so settings panel renders properly
+    setTimeout(() => {
+      openSettings();
+      setTimeout(() => {
+        const acctNav = document.querySelector('.sp-nav-item[data-sp="accounts"]');
+        if (acctNav) { acctNav.click(); }
+      }, 120);
+    }, 400);
+  } else if (params.get('gmailError')) {
+    const errMap = { not_configured:'Gmail credentials not configured on the server.', cancelled:'Gmail connection was cancelled.', auth_failed:'Google authentication failed. Please try again.', invalid_state:'Invalid OAuth state. Please try again.' };
+    const msg = errMap[params.get('gmailError')] || 'Gmail connection failed.';
+    setTimeout(() => { alert('Gmail Error: ' + msg); }, 500);
+  }
 })();
 </script>
 </body>
