@@ -1,0 +1,2 @@
+- [Settings inline panel](settings-inline.md) — settings must live inside the mail SPA, not a separate page, to avoid token loss on navigation
+- [Auth architecture](auth-arch.md) — JWT in localStorage as `godev_token`; phone verification removed; signup is username+password only, creates user directly
