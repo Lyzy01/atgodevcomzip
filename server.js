@@ -216,6 +216,40 @@ app.get('/api/mail/trash', requireAuth, async (req, res) => {
   } catch { return res.status(500).json({ error: 'Server error.' }); }
 });
 
+app.get('/api/mail/starred', requireAuth, async (req, res) => {
+  try {
+    const messages = await Message.find({
+      $or: [{ to: req.user.email }, { from: req.user.email }],
+      starred: true,
+    }).sort({ sentAt: -1 }).limit(100);
+    return res.json({ messages });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.get('/api/mail/all', requireAuth, async (req, res) => {
+  try {
+    const messages = await Message.find({
+      $or: [
+        { to: req.user.email, trashedByRecipient: false },
+        { from: req.user.email, trashedBySender: false },
+      ],
+    }).sort({ sentAt: -1 }).limit(200);
+    return res.json({ messages });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.patch('/api/mail/message/:id/star', requireAuth, async (req, res) => {
+  try {
+    const msg = await Message.findById(req.params.id);
+    if (!msg) return res.status(404).json({ error: 'Message not found.' });
+    if (msg.to !== req.user.email && msg.from !== req.user.email)
+      return res.status(403).json({ error: 'Access denied.' });
+    msg.starred = !msg.starred;
+    await msg.save();
+    return res.json({ starred: msg.starred });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
 app.get('/api/mail/unread-count', requireAuth, async (req, res) => {
   try {
     const count = await Message.countDocuments({ to: req.user.email, read: false, trashedByRecipient: false });

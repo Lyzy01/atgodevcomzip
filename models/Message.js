@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema({
   subject: { type: String, default: '(no subject)', trim: true },
   body:    { type: String, default: '' },
   read:    { type: Boolean, default: false },
+  starred: { type: Boolean, default: false },
   trashedByRecipient: { type: Boolean, default: false },
   trashedBySender:    { type: Boolean, default: false },
   sentAt: { type: Date, default: Date.now },
