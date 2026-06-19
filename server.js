@@ -102,16 +102,6 @@ async function seedAdmin() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function generateOtp() { return String(Math.floor(100000 + Math.random() * 900000)); }
-
-/**
- * TODO: SMS Integration — replace console.log with Twilio:
- *   const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
- *   await client.messages.create({ body: `Your code: ${otp}`, from: process.env.TWILIO_PHONE_NUMBER, to: phone });
- */
-async function sendOtpSms(phone, otp) {
-  console.log(`\n📲  [MOCK SMS] OTP for ${phone}: ${otp}\n`);
-}
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 app.get('/',          (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -131,77 +121,23 @@ app.get('/api/check-username', async (req, res) => {
   } catch { return res.status(500).json({ available: false }); }
 });
 
-// ─── Signup: validate, store pending, send OTP ────────────────────────────────
-app.post('/api/signup', otpLimiter, async (req, res) => {
+// ─── Signup → create account directly → return JWT ───────────────────────────
+app.post('/api/signup', async (req, res) => {
   try {
     const username = (req.body.username || '').trim().toLowerCase();
     const password = (req.body.password || '');
-    const phone    = (req.body.phone    || '').trim();
 
     if (!username || !/^[a-z0-9._-]{3,30}$/.test(username))
       return res.status(400).json({ error: 'Invalid username format.' });
     if (password.length < 8)
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-    if (!phone || phone.replace(/\D/g, '').length < 7)
-      return res.status(400).json({ error: 'A valid phone number is required.' });
 
     const email = `${username}@godev.com`;
     if (await User.findOne({ username }))
       return res.status(409).json({ error: `"${username}" is already taken.` });
-    if (await User.findOne({ phone }))
-      return res.status(409).json({ error: 'This phone number is already registered.' });
 
     const passwordHash = await bcrypt.hash(password, 12);
-
-    // Store pending signup in DB (TTL 10 min)
-    await PendingSignup.findOneAndUpdate(
-      { phone },
-      { phone, username, email, passwordHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
-      { upsert: true, new: true }
-    );
-
-    const otp = generateOtp();
-    await Otp.findOneAndUpdate(
-      { phone },
-      { phone, otpHash: await bcrypt.hash(otp, 10), expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
-      { upsert: true, new: true }
-    );
-
-    await sendOtpSms(phone, otp);
-    return res.json({ message: 'OTP sent.', phone });
-  } catch (err) {
-    console.error('signup error:', err);
-    return res.status(500).json({ error: 'Server error. Please try again.' });
-  }
-});
-
-// ─── Verify OTP → create account → return JWT ────────────────────────────────
-app.post('/api/verify-otp', async (req, res) => {
-  try {
-    const phone = (req.body.phone || '').trim();
-    const otp   = (req.body.otp   || '').trim();
-
-    if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP are required.' });
-
-    const pending = await PendingSignup.findOne({ phone });
-    if (!pending || pending.expiresAt < new Date())
-      return res.status(400).json({ error: 'Signup session expired. Please start over.' });
-
-    const record = await Otp.findOne({ phone });
-    if (!record || record.expiresAt < new Date()) {
-      await Otp.deleteOne({ phone });
-      return res.status(400).json({ error: 'OTP expired. Please start over.' });
-    }
-    if (!await bcrypt.compare(otp, record.otpHash))
-      return res.status(400).json({ error: 'Invalid code. Please try again.' });
-
-    await Otp.deleteOne({ phone });
-    await PendingSignup.deleteOne({ phone });
-
-    const user = await User.create({
-      username: pending.username, email: pending.email,
-      phone: pending.phone, passwordHash: pending.passwordHash, role: 'user',
-    });
+    const user = await User.create({ username, email, passwordHash, role: 'user' });
     console.log(`✅  New account: ${user.email}`);
 
     await Message.create({
@@ -213,7 +149,7 @@ app.post('/api/verify-otp', async (req, res) => {
     const token = signToken(user);
     return res.json({ token, email: user.email, role: user.role, message: 'Account created!' });
   } catch (err) {
-    console.error('verify-otp error:', err);
+    console.error('signup error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
@@ -350,7 +286,18 @@ app.get('/api/settings', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('username email phone displayName signature theme createdAt role');
     if (!user) return res.status(404).json({ error: 'User not found.' });
-    return res.json({ user });
+    return res.json({
+      user: {
+        username:    user.username,
+        email:       user.email,
+        phone:       user.phone    || '',
+        displayName: user.displayName || '',
+        signature:   user.signature   || '',
+        theme:       user.theme       || 'dark',
+        createdAt:   user.createdAt,
+        role:        user.role,
+      }
+    });
   } catch { return res.status(500).json({ error: 'Server error.' }); }
 });
 

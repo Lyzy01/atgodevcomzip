@@ -44,12 +44,7 @@
         <div class="field-hint" id="confirm-hint"></div>
       </div>
 
-      <div class="form-group">
-        <label for="phone">Phone Number <span class="label-note">(for verification)</span></label>
-        <input type="tel" id="phone" name="phone" placeholder="+1 555 000 0000" autocomplete="tel" required />
-      </div>
-
-      <button type="submit" id="submit-btn">Continue →</button>
+      <button type="submit" id="submit-btn">Create Account</button>
     </form>
 
     <div class="alert" id="alert"></div>
@@ -106,7 +101,11 @@
     });
 
     function showAlert(msg, type) { alertEl.textContent = msg; alertEl.className = `alert show alert-${type}`; }
-    function setLoading(on) { document.getElementById('submit-btn').disabled = on; document.getElementById('submit-btn').textContent = on ? 'Sending code…' : 'Continue →'; }
+    function setLoading(on) {
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = on;
+      btn.innerHTML = on ? '<span class="spinner"></span>Creating account…' : 'Create Account';
+    }
 
     document.getElementById('signup-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -114,27 +113,28 @@
       const username = usernameInput.value.trim().toLowerCase();
       const password = document.getElementById('password').value;
       const confirm  = document.getElementById('confirm').value;
-      const phone    = document.getElementById('phone').value.trim();
 
-      if (!username)               { showAlert('Please enter a username.', 'error'); return; }
-      if (!usernameAvailable)      { showAlert('Please choose an available username.', 'error'); return; }
-      if (password.length < 8)     { showAlert('Password must be at least 8 characters.', 'error'); return; }
-      if (password !== confirm)    { showAlert('Passwords do not match.', 'error'); return; }
-      if (!phone || phone.replace(/\D/g,'').length < 7) { showAlert('Please enter a valid phone number.', 'error'); return; }
+      if (!username)            { showAlert('Please enter a username.', 'error'); return; }
+      if (!usernameAvailable)   { showAlert('Please choose an available username.', 'error'); return; }
+      if (password.length < 8)  { showAlert('Password must be at least 8 characters.', 'error'); return; }
+      if (password !== confirm)  { showAlert('Passwords do not match.', 'error'); return; }
 
       setLoading(true);
       try {
         const res = await fetch('/api/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, phone }),
+          body: JSON.stringify({ username, password }),
         });
         const data = await res.json();
         if (!res.ok) { showAlert(data.error || 'Something went wrong.', 'error'); return; }
 
-        localStorage.setItem('godev_pending_phone', data.phone || phone);
-        showAlert('Code sent! Check server console (mock mode). Redirecting…', 'success');
-        setTimeout(() => { window.location.href = '/verify'; }, 1400);
+        localStorage.setItem('godev_token', data.token);
+        localStorage.setItem('godev_email', data.email);
+        localStorage.setItem('godev_role',  data.role);
+
+        showAlert('🎉 Account created! Taking you to your inbox…', 'success');
+        setTimeout(() => { window.location.href = '/mail'; }, 800);
       } catch {
         showAlert('Network error. Please try again.', 'error');
       } finally {

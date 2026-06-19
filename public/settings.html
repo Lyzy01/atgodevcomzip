@@ -610,9 +610,13 @@ async function loadSettings() {
     const res = await fetch('/api/settings', { headers: auth() });
     if (res.status === 401) { localStorage.removeItem('godev_token'); window.location.href = '/login'; return; }
     const data = await res.json();
+    if (!data.user) { toast('Could not load your settings. Please reload the page.', 'error'); return; }
     userData = data.user;
     populateUI(userData);
-  } catch { toast('Failed to load settings.', 'error'); }
+  } catch (err) {
+    console.error('loadSettings error:', err);
+    toast('Failed to load settings. Check your connection and reload.', 'error');
+  }
 }
 
 function avatarColor(str) {
@@ -656,7 +660,8 @@ function populateUI(u) {
 
   // Density from localStorage
   const density = localStorage.getItem('godev_density') || 'comfortable';
-  document.querySelector(`input[name="density"][value="${density}"]`).checked = true;
+  const densityEl = document.querySelector(`input[name="density"][value="${density}"]`);
+  if (densityEl) densityEl.checked = true;
 
   // Security — JWT expiry
   try {
