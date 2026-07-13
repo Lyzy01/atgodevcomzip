@@ -2,7 +2,7 @@ services:
   - type: web
     name: godev-mail
     runtime: node
-    buildCommand: npm ci
+    buildCommand: rm -rf node_modules && npm install
     startCommand: node server.js
     plan: free
     envVars:
