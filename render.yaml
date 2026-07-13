@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: godev-mail
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false   # you'll paste this in Render's dashboard
+      - key: SESSION_SECRET
+        generateValue: true   # Render auto-generates a secure random value
+      - key: GOOGLE_CLIENT_ID
+        sync: false   # paste in Render dashboard (optional — for Gmail sync)
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false   # paste in Render dashboard (optional — for Gmail sync)
+      - key: GOOGLE_REDIRECT_URI
+        sync: false   # set to: https://<your-render-domain>/auth/google/callback
