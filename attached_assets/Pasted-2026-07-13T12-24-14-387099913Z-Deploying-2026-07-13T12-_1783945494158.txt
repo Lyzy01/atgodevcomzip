@@ -1,0 +1,50 @@
+2026-07-13T12:24:14.387099913Z ==> Deploying...
+2026-07-13T12:24:14.473326858Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-07-13T12:24:20.017402765Z ==> Running 'node server.js'
+2026-07-13T12:24:20.221283726Z node:internal/modules/cjs/loader:1210
+2026-07-13T12:24:20.221301997Z   throw err;
+2026-07-13T12:24:20.221305917Z   ^
+2026-07-13T12:24:20.221309417Z 
+2026-07-13T12:24:20.221313268Z Error: Cannot find module 'dotenv'
+2026-07-13T12:24:20.221317678Z Require stack:
+2026-07-13T12:24:20.221321308Z - /opt/render/project/src/server.js
+2026-07-13T12:24:20.221326089Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+2026-07-13T12:24:20.221331759Z     at Module._load (node:internal/modules/cjs/loader:1038:27)
+2026-07-13T12:24:20.221335619Z     at Module.require (node:internal/modules/cjs/loader:1289:19)
+2026-07-13T12:24:20.22133964Z     at require (node:internal/modules/helpers:182:18)
+2026-07-13T12:24:20.22134354Z     at Object.<anonymous> (/opt/render/project/src/server.js:1:1)
+2026-07-13T12:24:20.22134726Z     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2026-07-13T12:24:20.221351261Z     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2026-07-13T12:24:20.221354941Z     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2026-07-13T12:24:20.221358531Z     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2026-07-13T12:24:20.221362352Z     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+2026-07-13T12:24:20.221370862Z   code: 'MODULE_NOT_FOUND',
+2026-07-13T12:24:20.221375043Z   requireStack: [ '/opt/render/project/src/server.js' ]
+2026-07-13T12:24:20.221378963Z }
+2026-07-13T12:24:20.221382203Z 
+2026-07-13T12:24:20.221385614Z Node.js v20.20.2
+2026-07-13T12:24:22.785957587Z ==> Exited with status 1
+2026-07-13T12:24:22.788598388Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2026-07-13T12:24:25.488159887Z ==> Running 'node server.js'
+2026-07-13T12:24:25.691264856Z node:internal/modules/cjs/loader:1210
+2026-07-13T12:24:25.691290758Z   throw err;
+2026-07-13T12:24:25.691294099Z   ^
+2026-07-13T12:24:25.691296539Z 
+2026-07-13T12:24:25.691299169Z Error: Cannot find module 'dotenv'
+2026-07-13T12:24:25.691301619Z Require stack:
+2026-07-13T12:24:25.691304689Z - /opt/render/project/src/server.js
+2026-07-13T12:24:25.69130772Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+2026-07-13T12:24:25.69131074Z     at Module._load (node:internal/modules/cjs/loader:1038:27)
+2026-07-13T12:24:25.6913131Z     at Module.require (node:internal/modules/cjs/loader:1289:19)
+2026-07-13T12:24:25.69131552Z     at require (node:internal/modules/helpers:182:18)
+2026-07-13T12:24:25.6913179Z     at Object.<anonymous> (/opt/render/project/src/server.js:1:1)
+2026-07-13T12:24:25.69132029Z     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2026-07-13T12:24:25.691323581Z     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2026-07-13T12:24:25.691327421Z     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2026-07-13T12:24:25.691331991Z     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2026-07-13T12:24:25.691336772Z     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+2026-07-13T12:24:25.691342882Z   code: 'MODULE_NOT_FOUND',
+2026-07-13T12:24:25.691346993Z   requireStack: [ '/opt/render/project/src/server.js' ]
+2026-07-13T12:24:25.691351143Z }
+2026-07-13T12:24:25.691354773Z 
+2026-07-13T12:24:25.691358493Z Node.js v20.20.2
