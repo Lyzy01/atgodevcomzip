@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema({
   theme:       { type: String, enum: ['dark', 'light'], default: 'dark' },
   createdAt:   { type: Date, default: Date.now },
 
+  // Recovery code (plain text — shown to user in Settings)
+  recoveryCode: { type: String, default: '' },
+
   // Google / Gmail OAuth
   googleConnected:    { type: Boolean, default: false },
   googleEmail:        { type: String, default: '' },

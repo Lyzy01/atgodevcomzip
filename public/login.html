@@ -41,11 +41,45 @@
       </svg>
       Secured with bcrypt &amp; JWT authentication
     </div>
+    <div class="footer-link" style="margin-top:6px">
+      <a href="#" id="forgot-link">Forgot password? Use recovery code →</a>
+    </div>
     <div class="footer-link">Don't have an account? <a href="/">Sign up →</a></div>
   </div>
 
+  <!-- Recovery panel (hidden by default) -->
+  <div class="card" id="recovery-card" style="display:none;margin-top:16px">
+    <div class="brand">
+      <div class="brand-icon">🔐</div>
+      <div class="brand-name">Go<span>Dev</span> Mail</div>
+    </div>
+    <h1 style="font-size:20px">Recover Account</h1>
+    <p class="subtitle">Enter your email, recovery code, and a new password.</p>
+
+    <form id="recover-form" novalidate>
+      <div class="form-group">
+        <label for="rec-email">Email Address</label>
+        <input type="text" id="rec-email" placeholder="you@godev.com" autocomplete="email" spellcheck="false" />
+      </div>
+      <div class="form-group">
+        <label for="rec-code">Recovery Code</label>
+        <input type="text" id="rec-code" placeholder="e.g. bluemoon482631" autocomplete="off" spellcheck="false" style="font-family:monospace" />
+      </div>
+      <div class="form-group">
+        <label for="rec-password">New Password</label>
+        <div class="input-eye-wrap">
+          <input type="password" id="rec-password" placeholder="Min. 8 characters" autocomplete="new-password" />
+          <button type="button" class="eye-btn" data-target="rec-password">👁</button>
+        </div>
+      </div>
+      <button type="submit" id="recover-btn">Reset Password & Sign In</button>
+    </form>
+
+    <div class="alert" id="rec-alert"></div>
+    <div class="footer-link" style="margin-top:10px"><a href="#" id="back-to-login">← Back to sign in</a></div>
+  </div>
+
   <script>
-    // If already logged in, redirect
     if (localStorage.getItem('godev_token')) window.location.href = '/mail';
 
     document.querySelectorAll('.eye-btn').forEach(btn => {
@@ -53,6 +87,18 @@
         const inp = document.getElementById(btn.dataset.target);
         inp.type = inp.type === 'password' ? 'text' : 'password';
       });
+    });
+
+    // Toggle recovery panel
+    document.getElementById('forgot-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelector('.card').style.display = 'none';
+      document.getElementById('recovery-card').style.display = 'block';
+    });
+    document.getElementById('back-to-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('recovery-card').style.display = 'none';
+      document.querySelector('.card').style.display = 'block';
     });
 
     const alertEl   = document.getElementById('alert');
@@ -67,12 +113,10 @@
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       alertEl.className = 'alert';
-
       let email = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
       if (!email.includes('@')) email += '@godev.com';
       if (!email || !password) { showAlert('Please fill in all fields.', 'error'); return; }
-
       setLoading(true);
       try {
         const res = await fetch('/api/login', {
@@ -82,17 +126,50 @@
         });
         const data = await res.json();
         if (!res.ok) { showAlert(data.error || 'Sign in failed.', 'error'); return; }
-
         localStorage.setItem('godev_token', data.token);
         localStorage.setItem('godev_email', data.email);
         localStorage.setItem('godev_role',  data.role);
-
         showAlert('Signed in! Opening your inbox…', 'success');
         setTimeout(() => { window.location.href = '/mail'; }, 600);
       } catch {
         showAlert('Network error. Please try again.', 'error');
       } finally {
         setLoading(false);
+      }
+    });
+
+    // Recovery form
+    const recAlertEl  = document.getElementById('rec-alert');
+    const recoverBtn  = document.getElementById('recover-btn');
+    function showRecAlert(msg, type) { recAlertEl.textContent = msg; recAlertEl.className = `alert show alert-${type}`; }
+
+    document.getElementById('recover-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      recAlertEl.className = 'alert';
+      let email       = document.getElementById('rec-email').value.trim().toLowerCase();
+      const code      = document.getElementById('rec-code').value.trim();
+      const newPass   = document.getElementById('rec-password').value;
+      if (!email.includes('@')) email += '@godev.com';
+      if (!email || !code || !newPass) { showRecAlert('Please fill in all fields.', 'error'); return; }
+      if (newPass.length < 8) { showRecAlert('Password must be at least 8 characters.', 'error'); return; }
+      recoverBtn.disabled = true; recoverBtn.textContent = 'Verifying…';
+      try {
+        const res = await fetch('/api/recover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, recoveryCode: code, newPassword: newPass }),
+        });
+        const data = await res.json();
+        if (!res.ok) { showRecAlert(data.error || 'Recovery failed.', 'error'); return; }
+        localStorage.setItem('godev_token', data.token);
+        localStorage.setItem('godev_email', data.email);
+        localStorage.setItem('godev_role',  data.role);
+        showRecAlert('Password reset! Opening your inbox…', 'success');
+        setTimeout(() => { window.location.href = '/mail'; }, 800);
+      } catch {
+        showRecAlert('Network error. Please try again.', 'error');
+      } finally {
+        recoverBtn.disabled = false; recoverBtn.textContent = 'Reset Password & Sign In';
       }
     });
   </script>

@@ -469,6 +469,34 @@
       </div>
     </div>
 
+    <!-- Recovery Code -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">🔐</span>
+        <div>
+          <div class="section-title">Recovery Code</div>
+          <div class="section-desc">Use this code to reset your password if you ever get locked out.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+          Keep this code somewhere safe — it's the only way to recover your account without your password.
+          After you use it, a new code is automatically generated.
+        </p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div id="recovery-code-box" style="font-family:monospace;font-size:15px;font-weight:600;letter-spacing:1px;padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);min-width:220px;text-align:center">
+            ••••••••••••••••
+          </div>
+          <button class="btn btn-sm" id="reveal-recovery-btn" style="background:var(--surface2);border:1px solid var(--border)">👁 Reveal</button>
+          <button class="btn btn-sm" id="copy-recovery-btn" style="background:var(--surface2);border:1px solid var(--border)" disabled>📋 Copy</button>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button class="btn btn-sm" id="regen-recovery-btn" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--danger)">↺ Generate New Code</button>
+        <span id="recovery-status" style="font-size:12px;margin-left:auto;color:var(--muted)"></span>
+      </div>
+    </div>
+
     <!-- Session info -->
     <div class="settings-section">
       <div class="section-header">
@@ -887,6 +915,62 @@ document.querySelectorAll('.eye-btn').forEach(btn => {
     const inp = document.getElementById(btn.dataset.target);
     inp.type = inp.type === 'password' ? 'text' : 'password';
   });
+});
+
+// ── Recovery code ─────────────────────────────────────────────────────────────
+let recoveryCodeValue = '';
+
+async function loadRecoveryCode() {
+  try {
+    const res = await fetch('/api/settings/recovery-code', { headers: auth() });
+    const d   = await res.json();
+    recoveryCodeValue = d.recoveryCode || '';
+  } catch {}
+}
+
+document.getElementById('reveal-recovery-btn').addEventListener('click', async () => {
+  const box = document.getElementById('recovery-code-box');
+  const btn = document.getElementById('reveal-recovery-btn');
+  const copyBtn = document.getElementById('copy-recovery-btn');
+  if (box.textContent.includes('•')) {
+    if (!recoveryCodeValue) await loadRecoveryCode();
+    box.textContent = recoveryCodeValue;
+    btn.textContent = '🙈 Hide';
+    copyBtn.disabled = false;
+  } else {
+    box.textContent = '••••••••••••••••';
+    btn.textContent = '👁 Reveal';
+    copyBtn.disabled = true;
+  }
+});
+
+document.getElementById('copy-recovery-btn').addEventListener('click', () => {
+  if (!recoveryCodeValue) return;
+  navigator.clipboard.writeText(recoveryCodeValue).then(() => {
+    toast('Recovery code copied!');
+    document.getElementById('recovery-status').textContent = '✓ Copied to clipboard';
+    setTimeout(() => { document.getElementById('recovery-status').textContent = ''; }, 2500);
+  });
+});
+
+document.getElementById('regen-recovery-btn').addEventListener('click', async () => {
+  if (!confirm('Generate a new recovery code? Your old one will stop working immediately.')) return;
+  const btn = document.getElementById('regen-recovery-btn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  try {
+    const res = await fetch('/api/settings/recovery-code/regenerate', { method: 'POST', headers: auth() });
+    const d   = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed.', 'error'); return; }
+    recoveryCodeValue = d.recoveryCode;
+    document.getElementById('recovery-code-box').textContent = recoveryCodeValue;
+    document.getElementById('reveal-recovery-btn').textContent = '🙈 Hide';
+    document.getElementById('copy-recovery-btn').disabled = false;
+    document.getElementById('recovery-status').textContent = '✓ New code generated — save it now!';
+    document.getElementById('recovery-status').style.color = 'var(--success)';
+    setTimeout(() => { document.getElementById('recovery-status').textContent = ''; document.getElementById('recovery-status').style.color = 'var(--muted)'; }, 4000);
+    toast('New recovery code generated!');
+  } catch { toast('Network error.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = '↺ Generate New Code'; }
 });
 
 // ── Gmail integration ──────────────────────────────────────────────────────────

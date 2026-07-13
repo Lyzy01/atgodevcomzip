@@ -167,6 +167,17 @@ async function seedAdmin() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// ─── Recovery code generator ─────────────────────────────────────────────────
+function generateRecoveryCode() {
+  const words = ['blue','dark','fast','gold','iron','jade','keen','lime','moon','nova',
+                 'oak','pine','rose','sage','teal','bold','calm','deep','fire','gray',
+                 'hero','cool','mist','pure','rise','soft','warm','wild','star','wave'];
+  const w1  = words[Math.floor(Math.random() * words.length)];
+  const w2  = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(100000 + Math.random() * 900000);
+  return `${w1}${w2}${num}`;
+}
+
 // ─── Cookie helper ────────────────────────────────────────────────────────────
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
@@ -228,7 +239,8 @@ app.post('/api/signup', async (req, res) => {
       return res.status(409).json({ error: `"${username}" is already taken.` });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ username, email, passwordHash, role: 'user' });
+    const recoveryCode = generateRecoveryCode();
+    const user = await User.create({ username, email, passwordHash, role: 'user', recoveryCode });
     console.log(`✅  New account: ${user.email}`);
 
     await Message.create({
@@ -411,6 +423,55 @@ app.delete('/api/mail/message/:id/permanent', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'settings.html')));
+
+// ─── Recovery code ────────────────────────────────────────────────────────────
+app.get('/api/settings/recovery-code', requireAuth, async (req, res) => {
+  try {
+    let user = await User.findById(req.user.userId).select('recoveryCode');
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (!user.recoveryCode) {
+      user.recoveryCode = generateRecoveryCode();
+      await user.save();
+    }
+    return res.json({ recoveryCode: user.recoveryCode });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+app.post('/api/settings/recovery-code/regenerate', requireAuth, async (req, res) => {
+  try {
+    const newCode = generateRecoveryCode();
+    await User.findByIdAndUpdate(req.user.userId, { recoveryCode: newCode });
+    return res.json({ recoveryCode: newCode });
+  } catch { return res.status(500).json({ error: 'Server error.' }); }
+});
+
+// ─── Recover account (login with recovery code + set new password) ────────────
+app.post('/api/recover', async (req, res) => {
+  try {
+    const email        = (req.body.email        || '').trim().toLowerCase();
+    const recoveryCode = (req.body.recoveryCode || '').trim();
+    const newPassword  = (req.body.newPassword  || '');
+    if (!email || !recoveryCode || !newPassword)
+      return res.status(400).json({ error: 'All fields are required.' });
+    if (newPassword.length < 8)
+      return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+
+    const user = await User.findOne({ email });
+    if (!user || user.recoveryCode !== recoveryCode)
+      return res.status(401).json({ error: 'Invalid email or recovery code.' });
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.recoveryCode = generateRecoveryCode(); // rotate after use
+    await user.save();
+
+    const token = signToken(user);
+    res.cookie('godev_auth', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    return res.json({ token, email: user.email, role: user.role, message: 'Password reset! Signing you in…' });
+  } catch (err) {
+    console.error('recover error:', err);
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
 
 app.get('/api/settings', requireAuth, async (req, res) => {
   try {
