@@ -167,13 +167,40 @@ async function seedAdmin() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// ─── Cookie helper ────────────────────────────────────────────────────────────
+function parseCookies(req) {
+  const raw = req.headers.cookie || '';
+  if (!raw) return {};
+  return Object.fromEntries(
+    raw.split(';').map(c => {
+      const idx = c.indexOf('=');
+      if (idx < 0) return [c.trim(), ''];
+      return [c.slice(0, idx).trim(), decodeURIComponent(c.slice(idx + 1).trim())];
+    })
+  );
+}
+
 // ─── Pages ────────────────────────────────────────────────────────────────────
 app.get('/',          (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/verify',    (req, res) => res.sendFile(path.join(__dirname, 'public', 'verify.html')));
 app.get('/login',     (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/admin',     (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/mail',      (req, res) => res.sendFile(path.join(__dirname, 'public', 'mail.html')));
+
+// ─── Admin page — server-side auth check ─────────────────────────────────────
+app.get('/admin', (req, res) => {
+  const cookies = parseCookies(req);
+  const token = cookies['godev_auth'];
+  if (!token) return res.redirect('/login?next=admin');
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    if (payload.role !== 'admin') return res.redirect('/mail');
+    return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } catch {
+    res.clearCookie('godev_auth');
+    return res.redirect('/login?next=admin');
+  }
+});
 
 // ─── Check username ───────────────────────────────────────────────────────────
 app.get('/api/check-username', async (req, res) => {
@@ -211,6 +238,7 @@ app.post('/api/signup', async (req, res) => {
     });
 
     const token = signToken(user);
+    res.cookie('godev_auth', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
     return res.json({ token, email: user.email, role: user.role, message: 'Account created!' });
   } catch (err) {
     console.error('signup error:', err);
@@ -231,6 +259,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
 
     const token = signToken(user);
+    res.cookie('godev_auth', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
     return res.json({ token, email: user.email, role: user.role, message: 'Signed in!' });
   } catch (err) {
     console.error('login error:', err);
@@ -247,8 +276,11 @@ app.get('/api/me', requireAuth, async (req, res) => {
   } catch { return res.status(500).json({ error: 'Server error.' }); }
 });
 
-// ─── Logout (client clears token) ────────────────────────────────────────────
-app.post('/api/logout', (req, res) => res.json({ message: 'Signed out.' }));
+// ─── Logout ───────────────────────────────────────────────────────────────────
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('godev_auth');
+  res.json({ message: 'Signed out.' });
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIL API

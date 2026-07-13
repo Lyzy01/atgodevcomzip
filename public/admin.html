@@ -168,7 +168,8 @@
       renderTable(q ? allUsers.filter(u => u.email.includes(q)) : allUsers);
     });
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      try { await fetch('/api/logout', { method: 'POST', headers: authHeaders() }); } catch {}
       localStorage.removeItem('godev_token');
       localStorage.removeItem('godev_email');
       localStorage.removeItem('godev_role');

@@ -300,6 +300,9 @@
   <button class="nav-item" data-tab="appearance">
     <span class="nav-icon">🎨</span> Appearance
   </button>
+  <button class="nav-item" data-tab="integrations">
+    <span class="nav-icon">🔗</span> Integrations
+  </button>
 
   <div class="sidebar-user">
     <div class="user-avatar" id="sidebar-avatar">?</div>
@@ -556,6 +559,56 @@
       <div class="section-footer">
         <button class="btn btn-primary btn-sm" id="save-density-btn">Save</button>
         <span id="density-status" style="font-size:12px;color:var(--success);margin-left:auto;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── INTEGRATIONS tab ─── -->
+  <div class="tab-content" id="tab-integrations" style="display:none">
+    <div class="page-header">
+      <div class="page-title">Integrations</div>
+      <div class="page-sub">Connect external accounts to bring more email into GoDev Mail.</div>
+    </div>
+
+    <!-- Gmail -->
+    <div class="settings-section">
+      <div class="section-header">
+        <span class="section-icon">📧</span>
+        <div>
+          <div class="section-title">Gmail</div>
+          <div class="section-desc">Sync your real Gmail inbox so you can read those messages here too.</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <!-- Not configured -->
+        <div id="gmail-not-configured" style="display:none;padding:12px 14px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:8px;font-size:13px;color:var(--danger)">
+          ⚠ Gmail sync hasn't been configured on this server yet. Contact your administrator to set up Google OAuth credentials.
+        </div>
+        <!-- Disconnected -->
+        <div id="gmail-disconnected" style="display:none">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+            Connect your Gmail account to view those messages inside GoDev Mail. We request read-only access — we never send or modify your Gmail.
+          </p>
+          <button class="btn btn-primary btn-sm" id="gmail-connect-btn">Connect Gmail Account</button>
+        </div>
+        <!-- Connected -->
+        <div id="gmail-connected" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);border-radius:8px">
+            <span style="font-size:18px">✓</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--success)">Connected</div>
+              <div style="font-size:12px;color:var(--muted)" id="gmail-connected-email"></div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px">
+            Last synced: <span id="gmail-last-sync">Never</span> · <span id="gmail-message-count">0</span> messages imported
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" id="gmail-sync-btn">Sync Now</button>
+            <button class="btn btn-sm" id="gmail-disconnect-btn" style="background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--danger)">Disconnect</button>
+          </div>
+          <div id="gmail-sync-status" style="font-size:12px;margin-top:10px;color:var(--muted)"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -836,20 +889,93 @@ document.querySelectorAll('.eye-btn').forEach(btn => {
   });
 });
 
-// ── Logout ────────────────────────────────────────────────────────────────────
-document.getElementById('logout-btn').addEventListener('click', () => {
-  ['godev_token','godev_email','godev_role','godev_theme'].forEach(k => localStorage.removeItem(k));
-  window.location.href = '/login';
-});
-document.getElementById('sign-out-all-btn').addEventListener('click', () => {
-  ['godev_token','godev_email','godev_role','godev_theme'].forEach(k => localStorage.removeItem(k));
-  window.location.href = '/login';
+// ── Gmail integration ──────────────────────────────────────────────────────────
+async function loadGmailStatus() {
+  try {
+    const res = await fetch('/api/settings/gmail/status', { headers: auth() });
+    if (!res.ok) return;
+    const d = await res.json();
+
+    if (!d.configured) {
+      document.getElementById('gmail-not-configured').style.display = 'block';
+      document.getElementById('gmail-disconnected').style.display  = 'none';
+      document.getElementById('gmail-connected').style.display     = 'none';
+      return;
+    }
+    if (d.connected) {
+      document.getElementById('gmail-not-configured').style.display = 'none';
+      document.getElementById('gmail-disconnected').style.display  = 'none';
+      document.getElementById('gmail-connected').style.display     = 'block';
+      document.getElementById('gmail-connected-email').textContent  = d.email || '';
+      document.getElementById('gmail-message-count').textContent    = d.count ?? 0;
+      document.getElementById('gmail-last-sync').textContent = d.lastSync
+        ? new Date(d.lastSync).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })
+        : 'Never';
+    } else {
+      document.getElementById('gmail-not-configured').style.display = 'none';
+      document.getElementById('gmail-disconnected').style.display  = 'block';
+      document.getElementById('gmail-connected').style.display     = 'none';
+    }
+  } catch (err) {
+    console.error('loadGmailStatus error:', err);
+  }
+}
+
+document.getElementById('gmail-connect-btn').addEventListener('click', () => {
+  window.location.href = `/auth/google?token=${encodeURIComponent(TOKEN)}`;
 });
 
+document.getElementById('gmail-sync-btn').addEventListener('click', async () => {
+  const btn    = document.getElementById('gmail-sync-btn');
+  const status = document.getElementById('gmail-sync-status');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  status.textContent = '';
+  try {
+    const res = await fetch('/api/settings/gmail/sync', { method: 'POST', headers: auth() });
+    const d   = await res.json();
+    if (!res.ok) { toast(d.error || 'Sync failed.', 'error'); return; }
+    toast(`Synced! ${d.synced} new message${d.synced === 1 ? '' : 's'} imported.`);
+    status.style.color = 'var(--success)';
+    status.textContent = `✓ ${d.synced} new message${d.synced === 1 ? '' : 's'} imported`;
+    await loadGmailStatus();
+  } catch { toast('Network error during sync.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Sync Now'; }
+});
+
+document.getElementById('gmail-disconnect-btn').addEventListener('click', async () => {
+  if (!confirm('Disconnect your Gmail account? Imported messages will stay in your inbox.')) return;
+  try {
+    const res = await fetch('/api/settings/gmail/disconnect', { method: 'DELETE', headers: auth() });
+    const d   = await res.json();
+    if (!res.ok) { toast(d.error || 'Failed to disconnect.', 'error'); return; }
+    toast('Gmail disconnected.');
+    await loadGmailStatus();
+  } catch { toast('Network error.', 'error'); }
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+async function doLogout() {
+  try { await fetch('/api/logout', { method: 'POST', headers: auth() }); } catch {}
+  ['godev_token','godev_email','godev_role','godev_theme'].forEach(k => localStorage.removeItem(k));
+  window.location.href = '/login';
+}
+document.getElementById('logout-btn').addEventListener('click', doLogout);
+document.getElementById('sign-out-all-btn').addEventListener('click', doLogout);
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+// Load Gmail status when integrations tab becomes visible
+document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+  if (btn.dataset.tab === 'integrations') {
+    btn.addEventListener('click', loadGmailStatus);
+  }
+});
+
 // Check URL hash for tab
 const hashTab = location.hash.replace('#','');
-if (['general','profile','security','appearance'].includes(hashTab)) switchTab(hashTab);
+if (['general','profile','security','appearance','integrations'].includes(hashTab)) {
+  switchTab(hashTab);
+  if (hashTab === 'integrations') loadGmailStatus();
+}
 loadSettings();
 </script>
 </body>
