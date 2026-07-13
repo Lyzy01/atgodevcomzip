@@ -1,0 +1,50 @@
+2026-07-13T12:27:45.683845621Z ==> Deploying...
+2026-07-13T12:27:45.759980616Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-07-13T12:27:52.241426434Z ==> Running 'node server.js'
+2026-07-13T12:27:52.450195008Z node:internal/modules/cjs/loader:1210
+2026-07-13T12:27:52.450209768Z   throw err;
+2026-07-13T12:27:52.450213738Z   ^
+2026-07-13T12:27:52.450217078Z 
+2026-07-13T12:27:52.450220318Z Error: Cannot find module 'express'
+2026-07-13T12:27:52.450223408Z Require stack:
+2026-07-13T12:27:52.450229689Z - /opt/render/project/src/server.js
+2026-07-13T12:27:52.450249289Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+2026-07-13T12:27:52.450253549Z     at Module._load (node:internal/modules/cjs/loader:1038:27)
+2026-07-13T12:27:52.450256719Z     at Module.require (node:internal/modules/cjs/loader:1289:19)
+2026-07-13T12:27:52.450259469Z     at require (node:internal/modules/helpers:182:18)
+2026-07-13T12:27:52.450262619Z     at Object.<anonymous> (/opt/render/project/src/server.js:2:17)
+2026-07-13T12:27:52.450265589Z     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2026-07-13T12:27:52.45026836Z     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2026-07-13T12:27:52.450271029Z     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2026-07-13T12:27:52.45027412Z     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2026-07-13T12:27:52.45027759Z     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+2026-07-13T12:27:52.45028157Z   code: 'MODULE_NOT_FOUND',
+2026-07-13T12:27:52.45028355Z   requireStack: [ '/opt/render/project/src/server.js' ]
+2026-07-13T12:27:52.45028549Z }
+2026-07-13T12:27:52.4502873Z 
+2026-07-13T12:27:52.45028921Z Node.js v20.20.2
+2026-07-13T12:27:54.420394455Z ==> Exited with status 1
+2026-07-13T12:27:54.422584311Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2026-07-13T12:27:57.12561461Z ==> Running 'node server.js'
+2026-07-13T12:27:57.333883272Z node:internal/modules/cjs/loader:1210
+2026-07-13T12:27:57.333901373Z   throw err;
+2026-07-13T12:27:57.333905173Z   ^
+2026-07-13T12:27:57.333908343Z 
+2026-07-13T12:27:57.333911293Z Error: Cannot find module 'express'
+2026-07-13T12:27:57.333914393Z Require stack:
+2026-07-13T12:27:57.333917293Z - /opt/render/project/src/server.js
+2026-07-13T12:27:57.333922953Z     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+2026-07-13T12:27:57.333926873Z     at Module._load (node:internal/modules/cjs/loader:1038:27)
+2026-07-13T12:27:57.333930053Z     at Module.require (node:internal/modules/cjs/loader:1289:19)
+2026-07-13T12:27:57.333933214Z     at require (node:internal/modules/helpers:182:18)
+2026-07-13T12:27:57.333936304Z     at Object.<anonymous> (/opt/render/project/src/server.js:2:17)
+2026-07-13T12:27:57.333939344Z     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2026-07-13T12:27:57.333942294Z     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2026-07-13T12:27:57.333945334Z     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2026-07-13T12:27:57.333948344Z     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2026-07-13T12:27:57.333952954Z     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12) {
+2026-07-13T12:27:57.333959414Z   code: 'MODULE_NOT_FOUND',
+2026-07-13T12:27:57.333962274Z   requireStack: [ '/opt/render/project/src/server.js' ]
+2026-07-13T12:27:57.333965285Z }
+2026-07-13T12:27:57.333968045Z 
+2026-07-13T12:27:57.333971105Z Node.js v20.20.2
