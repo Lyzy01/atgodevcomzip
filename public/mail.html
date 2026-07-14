@@ -747,7 +747,7 @@ function renderList(){
       : `<svg viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></svg>`;
     return `
       <div class="msg-item ${unread?'unread':''} ${m._id===selectedId?'selected':''}"
-           data-id="${m._id}" onclick="openMessage('${m._id}')">
+           data-id="${m._id}">
         <div class="msg-avatar" style="background:${avatarColor(addr)}">${initial(addr)}</div>
         <div class="msg-meta">
           <div class="msg-row1">
@@ -757,8 +757,7 @@ function renderList(){
           <div class="msg-subject">${esc(m.subject)}</div>
           <div class="msg-preview">${esc(preview)}</div>
         </div>
-        <button class="msg-item-star ${starred?'starred':''}"
-          onclick="event.stopPropagation();toggleStar('${m._id}',this)"
+        <button class="msg-item-star ${starred?'starred':''}" data-star-id="${m._id}"
           title="${starred?'Unstar':'Star'}">
           ${starSvg}
         </button>
@@ -1350,6 +1349,16 @@ async function loadGmailStatus(){
     area.innerHTML = `<div class="sp-label" style="color:var(--danger)">Failed to load Gmail status.</div>`;
   }
 }
+
+// ── Message list click delegation ────────────────────────────────────────────
+document.getElementById('list-body').addEventListener('click', e => {
+  // Star button
+  const starBtn = e.target.closest('[data-star-id]');
+  if (starBtn) { e.stopPropagation(); toggleStar(starBtn.dataset.starId, starBtn); return; }
+  // Message row
+  const item = e.target.closest('.msg-item[data-id]');
+  if (item) openMessage(item.dataset.id);
+});
 
 // ── Nav clicks ────────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item[data-folder]').forEach(el => {
