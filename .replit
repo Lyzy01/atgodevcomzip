@@ -6,6 +6,7 @@ expertMode = true
 
 [userenv.shared]
 PORT = "5000"
+GOOGLE_REDIRECT_URI = "https://778de51f-de6e-449a-8e23-59b586401870-00-2h0almrghe0eb.pike.replit.dev/auth/google/callback"
 
 [workflows]
 runButton = "Project"
