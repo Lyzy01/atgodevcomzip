@@ -875,7 +875,10 @@ async function openMessage(id){
 
   try {
     const r = await fetch(`/api/mail/message/${id}`, { headers: authH() });
-    if (!r.ok) return;
+    if (!r.ok) {
+      document.getElementById('content-panel').innerHTML = `<div class="no-msg"><p style="color:var(--danger)">Could not load message (${r.status}). Try again.</p></div>`;
+      return;
+    }
     const { message: msg } = await r.json();
 
     const local = messages.find(m => m._id === id);
@@ -900,7 +903,7 @@ async function openMessage(id){
           </div>
           <div class="msg-view-date">${fmtLong(msg.sentAt)}</div>
         </div>
-        <div class="msg-view-body">${esc(msg.body)}</div>
+        <div class="msg-view-body">${msg.body ? esc(msg.body).replace(/\n/g,'<br>') : '<span style="color:var(--muted);font-style:italic">No message body</span>'}</div>
         <div class="msg-actions">
           ${isInbox ? `<button class="msg-btn btn-reply" onclick="openReply('${esc(msg.from)}','${esc(msg.subject)}')">
             <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>

@@ -679,6 +679,7 @@ function switchTab(tabId) {
     el.classList.toggle('active', el.dataset.tab === tabId);
   });
   document.getElementById('main').scrollTop = 0;
+  if (tabId === 'security') autoRevealRecoveryCode();
 }
 document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -926,6 +927,22 @@ async function loadRecoveryCode() {
     const d   = await res.json();
     recoveryCodeValue = d.recoveryCode || '';
   } catch {}
+}
+
+async function autoRevealRecoveryCode() {
+  const box     = document.getElementById('recovery-code-box');
+  const btn     = document.getElementById('reveal-recovery-btn');
+  const copyBtn = document.getElementById('copy-recovery-btn');
+  if (recoveryCodeValue) return; // already loaded
+  box.textContent = 'Loading…';
+  await loadRecoveryCode();
+  if (recoveryCodeValue) {
+    box.textContent   = recoveryCodeValue;
+    btn.textContent   = '🙈 Hide';
+    copyBtn.disabled  = false;
+  } else {
+    box.textContent = '(none yet — click Generate)';
+  }
 }
 
 document.getElementById('reveal-recovery-btn').addEventListener('click', async () => {
